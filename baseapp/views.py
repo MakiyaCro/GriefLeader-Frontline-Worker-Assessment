@@ -774,7 +774,6 @@ def view_assessment(request, assessment_id):
     })
 
 
-
 def thank_you(request):
     """Simple view for the thank you page after assessment completion"""
     return render(request, 'baseapp/thank_you.html')
