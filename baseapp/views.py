@@ -50,52 +50,32 @@ def home(request):
     return render(request, 'baseapp/home.html')
 
 def login_view(request):
-    """Handle user login with business selection"""
+    """Handle user login"""
     if request.user.is_authenticated:
         return redirect_user(request.user)
             
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
-        business_id = request.POST.get('business')
         
         user = authenticate(request, username=username, password=password)
         
         if user is not None:
-            # For superusers, require business selection
-            if user.is_superuser and not business_id:
-                messages.error(request, 'Please select a business')
-                return render(request, 'baseapp/login.html', {
-                    'businesses': Business.objects.all(),
-                    'username': username  # Preserve the username
-                })
-            
             login(request, user)
-            
-            # Set current business
-            if business_id:
-                business = get_object_or_404(Business, id=business_id)
-                user.set_current_business(business)
-            
             return redirect_user(user)
         else:
             messages.error(request, 'Invalid username or password')
     
-    # Get all businesses for the dropdown
-    businesses = Business.objects.all()
-    return render(request, 'baseapp/login.html', {'businesses': businesses})
+    return render(request, 'baseapp/login.html')
 
 def redirect_user(user):
     """Helper function to redirect users based on their type"""
     if user.is_superuser:
-        if not user.current_business:
-            messages.warning(user, 'Please select a business to continue')
-            logout(user)
-            return redirect('baseapp:login')
         return redirect('baseapp:admin_dashboard')
     elif user.is_hr:
         return redirect('baseapp:dashboard')
     return redirect('baseapp:home')
+
 
 def logout_view(request):
     """Handle user logout"""
@@ -384,7 +364,6 @@ def admin_dashboard(request):
     }
     
     return render(request, 'baseapp/admin/dashboard.html', context)
-
 
 @user_passes_test(is_admin)
 def create_benchmark_batch(request, business_id):
