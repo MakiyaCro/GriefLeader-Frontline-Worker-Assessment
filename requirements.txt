@@ -1,0 +1,5 @@
+# requirements.txt
+Django==5.0
+django-crispy-forms==2.1
+python-decouple==3.8
+django-environ==0.11.2

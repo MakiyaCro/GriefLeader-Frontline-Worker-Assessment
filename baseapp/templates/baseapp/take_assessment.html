@@ -1,0 +1,43 @@
+<!-- baseapp/templates/baseapp/take_assessment.html -->
+{% extends 'baseapp/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-4">Assessment for {{ assessment.position }}</h2>
+    <div class="alert alert-info">
+        <p class="mb-0">Please select the statement that best describes you for each pair.</p>
+    </div>
+
+    <form method="post" class="needs-validation" novalidate>
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{{ field.label }}</h5>
+                </div>
+                <div class="card-body">
+                    {% for choice in field %}
+                        <div class="form-check mb-3 p-3 border rounded">
+                            {{ choice.tag }}
+                            <label class="form-check-label ms-2" for="{{ choice.id_for_label }}">
+                                {{ choice.choice_label }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                    {% if field.errors %}
+                        <div class="alert alert-danger mt-2">
+                            {{ field.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+
+        <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">Submit Assessment</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

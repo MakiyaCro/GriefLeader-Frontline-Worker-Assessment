@@ -1,0 +1,88 @@
+{% extends 'baseapp/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h3 class="mb-0">Login</h3>
+                </div>
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" name="username" class="form-control" required id="username">
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" name="password" class="form-control" required id="password">
+                        </div>
+                        
+                        <!-- Business selector (initially hidden) -->
+                        <div id="businessSelector" class="mb-3" style="display: none;">
+                            <label for="business" class="form-label">Select Business</label>
+                            <select name="business" class="form-control" id="business">
+                                {% for business in businesses %}
+                                    <option value="{{ business.id }}">{{ business.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show business selector after initial authentication for superusers
+document.querySelector('form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('{% url "baseapp:check_user_type" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.is_superuser) {
+            // Show business selector if not already shown
+            const businessSelector = document.getElementById('businessSelector');
+            if (businessSelector.style.display === 'none') {
+                businessSelector.style.display = 'block';
+                return; // Don't submit the form yet
+            }
+        }
+        
+        // Submit the form normally
+        this.submit();
+    } catch (error) {
+        console.error('Error:', error);
+        this.submit(); // Fall back to normal submission
+    }
+});
+</script>
+{% endblock %}

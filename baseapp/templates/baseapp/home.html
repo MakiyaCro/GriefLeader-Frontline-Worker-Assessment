@@ -1,0 +1,54 @@
+<!-- baseapp/templates/baseapp/home.html -->
+{% extends 'baseapp/base.html' %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Header Section -->
+    <div class="text-center mb-5">
+        <h1 class="display-4 mb-3">Welcome to the Assessment System</h1>
+        <p class="lead text-muted">
+            A comprehensive platform for evaluating frontline worker attributes
+        </p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-8 text-center">
+            {% if user.is_authenticated %}
+                {% if user.is_hr %}
+                    <div class="card shadow-sm">
+                        <div class="card-body p-5">
+                            <h2 class="card-title mb-4">HR Dashboard</h2>
+                            <p class="card-text mb-4">
+                                Manage assessments and view candidate responses from your dashboard.
+                            </p>
+                            <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                                <a href="{% url 'baseapp:dashboard' %}" class="btn btn-primary btn-lg px-4">
+                                    Go to Dashboard
+                                </a>
+                                <a href="{% url 'baseapp:create_assessment' %}" class="btn btn-outline-primary btn-lg px-4">
+                                    Create Assessment
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="card shadow-sm">
+                    <div class="card-body p-5">
+                        <h2 class="card-title mb-4">Sign In</h2>
+                        <p class="card-text mb-4">
+                            Please log in to access the assessment system.
+                        </p>
+                        <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                            <a href="{% url 'baseapp:login' %}" class="btn btn-primary btn-lg px-4">
+                                Login
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

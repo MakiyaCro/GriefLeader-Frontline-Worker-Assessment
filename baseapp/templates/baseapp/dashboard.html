@@ -1,0 +1,290 @@
+{% extends 'baseapp/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>HR Dashboard</h2>
+            <p class="text-muted">{{ request.user.business.name }}</p>
+        </div>
+        <a href="{% url 'baseapp:create_assessment' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>Create New Assessment
+        </a>
+    </div>
+
+    <!-- Messages/Alerts -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Assessments Table -->
+    {% if assessments %}
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Candidate</th>
+                                <th>Position</th>
+                                <th>Date Created</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for assessment in assessments %}
+                                <tr>
+                                    <td>{{ assessment.candidate_name }}</td>
+                                    <td>{{ assessment.position }}</td>
+                                    <td>{{ assessment.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if assessment.completed %}
+                                            <span class="badge bg-success">Completed</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            {% if assessment.completed %}
+                                                <button class="btn btn-primary btn-sm" 
+                                                        onclick="showReportPreview({{ assessment.id }})">
+                                                    <i class="bi bi-file-earmark-text me-1"></i>View Results
+                                                </button>
+                                            {% endif %}
+                                            {% if not assessment.completed %}
+                                                <button class="btn btn-secondary btn-sm" 
+                                                        onclick="copyAssessmentLink('{{ assessment.unique_link }}')">
+                                                    <i class="bi bi-clipboard me-1"></i>Copy Link
+                                                </button>
+                                            {% endif %}
+                                            <button class="btn btn-info btn-sm" 
+                                                    onclick="confirmResend({{ assessment.id }}, '{{ assessment.candidate_name }}')">
+                                                <i class="bi bi-envelope me-1"></i>Resend
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>No assessments created yet. Click the button above to create your first assessment.
+        </div>
+    {% endif %}
+</div>
+
+<!-- PDF Preview Modal -->
+<div class="modal fade" id="pdfPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>Assessment Report Preview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="ratio ratio-16x9">
+                    <iframe id="pdfViewer" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Close
+                </button>
+                <button type="button" class="btn btn-primary" id="downloadButton">
+                    <i class="bi bi-download me-2"></i>Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resend Confirmation Modal -->
+<div class="modal fade" id="resendConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Resend Assessment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to resend the assessment link to <span id="candidateName"></span>? This will generate a new link and deactivate the old one.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmResendBtn">Resend Assessment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Spinner Modal -->
+<div class="modal fade" id="loadingModal" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5 class="mb-0">Processing...</h5>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function hideSpinner() {
+    const spinnerModalEl = document.getElementById('loadingModal');
+    
+    // Remove modal instance
+    const spinnerInstance = bootstrap.Modal.getInstance(spinnerModalEl);
+    if (spinnerInstance) {
+        spinnerInstance.dispose();
+    }
+    
+    // Force remove all modal-related classes and styles
+    spinnerModalEl.classList.remove('show', 'fade', 'modal-open');
+    spinnerModalEl.style.display = 'none';
+    document.body.classList.remove('modal-open');
+    
+    // Remove backdrops
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => {
+        backdrop.classList.remove('show', 'fade');
+        backdrop.remove();
+    });
+}
+
+function showReportPreview(assessmentId) {
+    const spinnerModalEl = document.getElementById('loadingModal');
+    const previewModalEl = document.getElementById('pdfPreviewModal');
+    const viewer = document.getElementById('pdfViewer');
+    const downloadBtn = document.getElementById('downloadButton');
+    
+    // Force clean initial state
+    hideSpinner();
+    
+    // Initialize new modal instance
+    const spinnerModal = new bootstrap.Modal(spinnerModalEl);
+    const previewModal = new bootstrap.Modal(previewModalEl);
+    
+    // Show spinner
+    spinnerModal.show();
+    
+    // Get the URL for the PDF
+    const pdfUrl = `{% url 'baseapp:preview_assessment_report' 0 %}`.replace('0', assessmentId);
+    
+    // Add safety timeout
+    const safetyTimeout = setTimeout(() => {
+        hideSpinner();
+        alert('The preview is taking too long to load. Please try again.');
+    }, 10000);
+    
+    fetch(pdfUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('PDF not accessible');
+            }
+            clearTimeout(safetyTimeout);
+            hideSpinner();
+            
+            viewer.src = pdfUrl;
+            
+            setTimeout(() => {
+                previewModal.show();
+            }, 100);
+            
+            downloadBtn.onclick = function() {
+                window.location.href = `{% url 'baseapp:download_assessment_report' 0 %}`.replace('0', assessmentId);
+            };
+        })
+        .catch(error => {
+            clearTimeout(safetyTimeout);
+            hideSpinner();
+            alert('Error loading the PDF preview. Please try again.');
+        });
+}
+
+document.getElementById('pdfPreviewModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('pdfViewer').src = '';
+    hideSpinner();
+});
+
+function confirmResend(assessmentId, candidateName) {
+    const modal = new bootstrap.Modal(document.getElementById('resendConfirmModal'));
+    document.getElementById('candidateName').textContent = candidateName;
+    
+    document.getElementById('confirmResendBtn').onclick = function() {
+        modal.hide();
+        const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+        loadingModal.show();
+        
+        window.location.href = `{% url 'baseapp:resend_assessment' 0 %}`.replace('0', assessmentId);
+    };
+    
+    modal.show();
+}
+
+function copyAssessmentLink(uniqueLink) {
+    const baseUrl = window.location.origin;
+    const fullUrl = `${baseUrl}/assessment/${uniqueLink}/`;
+    
+    navigator.clipboard.writeText(fullUrl).then(function() {
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed bottom-0 end-0 p-3';
+        toast.style.zIndex = '11';
+        toast.innerHTML = `
+            <div class="toast align-items-center text-white bg-success border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-check-circle me-2"></i>Assessment link copied to clipboard!
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        const toastElement = new bootstrap.Toast(toast.querySelector('.toast'));
+        toastElement.show();
+        
+        toast.addEventListener('hidden.bs.toast', function () {
+            document.body.removeChild(toast);
+        });
+    }).catch(function(err) {
+        console.error('Failed to copy text: ', err);
+        alert('Failed to copy assessment link. Please try again.');
+    });
+}
+
+document.getElementById('loadingModal').addEventListener('hidden.bs.modal', function() {
+    console.log('Spinner hidden event triggered');
+    hideSpinner();
+});
+</script>
+
+<style>
+    .table th {
+        font-weight: 600;
+    }
+    .modal-xl {
+        max-width: 90%;
+    }
+    .toast {
+        opacity: 1 !important;
+    }
+</style>
+{% endblock %}

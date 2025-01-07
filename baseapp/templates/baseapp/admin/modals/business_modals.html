@@ -1,0 +1,73 @@
+<!-- New Business Modal -->
+<div class="modal fade" id="newBusinessModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'baseapp:create_business' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Business</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Business Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Slug</label>
+                        <input type="text" class="form-control" name="slug" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Primary Color</label>
+                        <input type="color" class="form-control form-control-color" name="primary_color" value="#000000">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Business</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Business Modal -->
+{% for business in businesses %}
+<div class="modal fade" id="editBusinessModal{{ business.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'baseapp:edit_business' business.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Business</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Business Name</label>
+                        <input type="text" class="form-control" name="name" value="{{ business.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Slug</label>
+                        <input type="text" class="form-control" name="slug" value="{{ business.slug }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Primary Color</label>
+                        <input type="color" class="form-control form-control-color" name="primary_color" value="{{ business.primary_color }}">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" name="active" {% if business.active %}checked{% endif %}>
+                            <label class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
