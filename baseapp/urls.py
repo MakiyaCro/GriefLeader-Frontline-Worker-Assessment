@@ -24,14 +24,19 @@ urlpatterns = [
     path('manage/dashboard/', views.admin_dashboard, name='admin_dashboard'),
     path('manage/business/<int:business_id>/benchmarks/', views.create_benchmark_batch, name='create_benchmark_batch'),
     path('manage/business/<int:business_id>/results/', views.view_benchmark_results, name='view_benchmark_results'),
-         
+
     # New API endpoints for Admin Dashboard
     path('api/businesses/', views.business_list_create, name='business-list-create'),
     path('api/businesses/<int:pk>/', views.business_detail, name='business-detail'),
     path('api/hr-users/', views.hr_user_list_create, name='hr-user-list-create'),
     path('api/hr-users/<int:pk>/', views.hr_user_detail, name='hr-user-detail'),
     path('api/businesses/<int:business_id>/hr-users/', views.business_hr_users, name='business-hr-users'),
+
     path('api/question-pairs/import/', views.import_question_pairs, name='import-question-pairs'),
     path('api/question-pairs/', views.question_pair_list, name='question-pair-list'),
     path('api/attributes/', views.attribute_list, name='attribute-list'),
+
+    path('api/businesses/list/', views.list_businesses, name='list-businesses'),
+    path('api/businesses/<int:business_id>/details/', views.business_details, name='business-details'),
+    path('api/businesses/<int:business_id>/upload-template/', views.upload_assessment_template, name='upload-assessment-template'),
 ]

@@ -11,6 +11,9 @@ class Business(models.Model):
     primary_color = models.CharField(max_length=7, default="#000000")  # Hex color code
     created_at = models.DateTimeField(auto_now_add=True)
     active = models.BooleanField(default=True)
+    
+    # New field to track if assessment template is uploaded
+    assessment_template_uploaded = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

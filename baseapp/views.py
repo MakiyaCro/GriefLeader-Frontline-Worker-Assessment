@@ -118,6 +118,62 @@ def business_list_create(request):
             "businesses": list(businesses.values())
         })
 
+@require_http_methods(["GET"])
+@user_passes_test(is_admin)
+def list_businesses(request):
+    """
+    List all businesses with minimal details
+    """
+    businesses = Business.objects.all().values(
+        'id', 
+        'name', 
+        'primary_color', 
+        'assessment_template_uploaded'
+    )
+    return JsonResponse({
+        'businesses': list(businesses)
+    })
+
+
+@require_http_methods(["GET"])
+@user_passes_test(is_admin)
+def business_details(request, business_id):
+    """
+    Get comprehensive details for a specific business
+    """
+    try:
+        business = Business.objects.get(pk=business_id)
+        
+        # Get HR users for this business
+        hr_users = CustomUser.objects.filter(
+            business=business, 
+            is_hr=True
+        ).values('id', 'email', 'first_name', 'last_name', 'is_active')
+        
+        # Get question pairs for this business
+        question_pairs = QuestionPair.objects.filter(
+            business=business
+        ).select_related('attribute1', 'attribute2').values(
+            'id', 
+            'attribute1__name', 
+            'attribute2__name',
+            'statement_a', 
+            'statement_b'
+        )
+        
+        return JsonResponse({
+            'business': {
+                'id': business.id,
+                'name': business.name,
+                'primary_color': business.primary_color,
+                'assessment_template_uploaded': business.assessment_template_uploaded
+            },
+            'hr_users': list(hr_users),
+            'question_pairs': list(question_pairs)
+        })
+    except Business.DoesNotExist:
+        return JsonResponse({"error": "Business not found"}, status=404)
+
 @require_http_methods(["GET", "PUT", "DELETE"])
 @user_passes_test(is_admin)
 def business_detail(request, pk):
@@ -131,7 +187,8 @@ def business_detail(request, pk):
             "id": business.id,
             "name": business.name,
             "slug": business.slug,
-            "primary_color": business.primary_color
+            "primary_color": business.primary_color,
+            "assessment_template_uploaded": business.assessment_template_uploaded
         })
     elif request.method == "PUT":
         data = json.loads(request.body)
@@ -141,8 +198,31 @@ def business_detail(request, pk):
         business.save()
         return JsonResponse({"message": "Business updated successfully"})
     else:  # DELETE
-        business.delete()
-        return JsonResponse({"message": "Business deleted successfully"})
+        try:
+            # Delete all related data
+            # HR Users
+            CustomUser.objects.filter(business=business).delete()
+            
+            # Attributes
+            Attribute.objects.filter(business=business).delete()
+            
+            # Question Pairs
+            QuestionPair.objects.filter(business=business).delete()
+            
+            # Assessments
+            Assessment.objects.filter(business=business).delete()
+            
+            # Benchmark Batches
+            BenchmarkBatch.objects.filter(business=business).delete()
+            
+            # Finally delete the business
+            business.delete()
+            
+            return JsonResponse({"message": "Business deleted successfully"})
+        except Exception as e:
+            return JsonResponse({
+                "error": f"Error deleting business: {str(e)}"
+            }, status=500)
 
 @require_http_methods(["GET", "PUT", "DELETE"])
 @user_passes_test(is_admin)
@@ -216,44 +296,113 @@ def business_hr_users(request, business_id):
 @require_http_methods(["POST"])
 @user_passes_test(is_admin)
 def import_question_pairs(request):
+    # First, check if current business is set
+    if not request.user.current_business:
+        return JsonResponse({
+            "error": "No current business selected. Please select a business first."
+        }, status=400)
+
+    # Check if file is present
     if 'file' not in request.FILES:
-        return JsonResponse({"error": "No file provided"}, status=400)
+        return JsonResponse({
+            "error": "No file uploaded. Please upload a CSV file."
+        }, status=400)
         
     file = request.FILES['file']
-    decoded_file = file.read().decode('utf-8')
     
-    pairs = []
-    reader = csv.DictReader(StringIO(decoded_file))
-    
-    try:
-        for row in reader:
-            # Get or create attributes
-            attr1, _ = Attribute.objects.get_or_create(
-                name=row['attribute1'],
-                business_id=request.user.current_business.id
-            )
-            attr2, _ = Attribute.objects.get_or_create(
-                name=row['attribute2'],
-                business_id=request.user.current_business.id
-            )
-            
-            # Create question pair
-            pair = QuestionPair.objects.create(
-                business=request.user.current_business,
-                attribute1=attr1,
-                attribute2=attr2,
-                statement_a=row['statement_a'],
-                statement_b=row['statement_b'],
-                order=len(pairs) + 1
-            )
-            pairs.append(pair)
-            
+    # Validate file type
+    if not file.name.lower().endswith('.csv'):
         return JsonResponse({
-            "message": f"Successfully imported {len(pairs)} question pairs"
+            "error": "Invalid file type. Please upload a CSV file."
+        }, status=400)
+
+    try:
+        # Decode the file
+        decoded_file = file.read().decode('utf-8')
+        
+        # Use StringIO to create a file-like object for csv reader
+        reader = csv.DictReader(StringIO(decoded_file))
+        
+        # Define expected columns with flexibility
+        expected_columns = [
+            ('attribute1', 'Attribute-A'), 
+            ('attribute2', 'Attribute-B'), 
+            ('statement_a', 'Statement-A'), 
+            ('statement_b', 'Statement-B')
+        ]
+        
+        # Check if required columns exist
+        found_columns = reader.fieldnames or []
+        missing_columns = []
+        column_mapping = {}
+        
+        for expected, alternate in expected_columns:
+            if expected in found_columns:
+                column_mapping[expected] = expected
+            elif alternate in found_columns:
+                column_mapping[expected] = alternate
+            else:
+                missing_columns.append(f"{expected} (or {alternate})")
+        
+        if missing_columns:
+            return JsonResponse({
+                "error": f"Missing required columns: {', '.join(missing_columns)}. " 
+                         f"Found columns: {', '.join(found_columns)}"
+            }, status=400)
+        
+        pairs = []
+        for row_num, row in enumerate(reader, start=2):  # start at 2 because first row is headers
+            try:
+                # Validate row has all required fields
+                if not all(row.get(column_mapping[col]) for col in column_mapping):
+                    return JsonResponse({
+                        "error": f"Incomplete data in row {row_num}. All fields are required."
+                    }, status=400)
+                
+                # Get or create attributes
+                attr1, _ = Attribute.objects.get_or_create(
+                    name=row[column_mapping['attribute1']].strip(),
+                    business=request.user.current_business,
+                    defaults={'active': True}
+                )
+                attr2, _ = Attribute.objects.get_or_create(
+                    name=row[column_mapping['attribute2']].strip(),
+                    business=request.user.current_business,
+                    defaults={'active': True}
+                )
+                
+                # Check for duplicate question pairs
+                existing_pair = QuestionPair.objects.filter(
+                    business=request.user.current_business,
+                    attribute1=attr1,
+                    attribute2=attr2
+                ).exists()
+                
+                if not existing_pair:
+                    # Create question pair
+                    pair = QuestionPair.objects.create(
+                        business=request.user.current_business,
+                        attribute1=attr1,
+                        attribute2=attr2,
+                        statement_a=row[column_mapping['statement_a']].strip(),
+                        statement_b=row[column_mapping['statement_b']].strip(),
+                        order=len(pairs) + 1
+                    )
+                    pairs.append(pair)
+                
+            except Exception as row_error:
+                return JsonResponse({
+                    "error": f"Error processing row {row_num}: {str(row_error)}"
+                }, status=400)
+        
+        return JsonResponse({
+            "message": f"Successfully imported {len(pairs)} question pairs",
+            "count": len(pairs)
         })
+    
     except Exception as e:
         return JsonResponse({
-            "error": f"Error importing questions: {str(e)}"
+            "error": f"Unexpected error importing questions: {str(e)}"
         }, status=400)
 
 @require_http_methods(["GET"])
@@ -494,6 +643,101 @@ def view_benchmark_results(request, business_id):
         'batches': benchmark_batches
     })
 
+@require_http_methods(["POST"])
+@user_passes_test(is_admin)
+def upload_assessment_template(request, business_id):
+    """
+    Upload assessment template for a business
+    """
+    try:
+        business = Business.objects.get(pk=business_id)
+        
+        # Check if file is present
+        if 'file' not in request.FILES:
+            return JsonResponse({
+                "error": "No file uploaded. Please upload a CSV file."
+            }, status=400)
+        
+        file = request.FILES['file']
+        
+        # Validate file type
+        if not file.name.lower().endswith('.csv'):
+            return JsonResponse({
+                "error": "Invalid file type. Please upload a CSV file."
+            }, status=400)
+
+        # Use the existing import logic to process the file
+        decoded_file = file.read().decode('utf-8')
+        reader = csv.DictReader(StringIO(decoded_file))
+        
+        # Define expected columns
+        expected_columns = [
+            ('attribute1', 'Attribute-A'), 
+            ('attribute2', 'Attribute-B'), 
+            ('statement_a', 'Statement-A'), 
+            ('statement_b', 'Statement-B')
+        ]
+        
+        # Check if required columns exist
+        found_columns = reader.fieldnames or []
+        missing_columns = []
+        column_mapping = {}
+        
+        for expected, alternate in expected_columns:
+            if expected in found_columns:
+                column_mapping[expected] = expected
+            elif alternate in found_columns:
+                column_mapping[expected] = alternate
+            else:
+                missing_columns.append(f"{expected} (or {alternate})")
+        
+        if missing_columns:
+            return JsonResponse({
+                "error": f"Missing required columns: {', '.join(missing_columns)}. " 
+                         f"Found columns: {', '.join(found_columns)}"
+            }, status=400)
+        
+        # Clear existing question pairs for this business
+        QuestionPair.objects.filter(business=business).delete()
+        
+        pairs = []
+        for row_num, row in enumerate(reader, start=2):
+            # Get or create attributes
+            attr1, _ = Attribute.objects.get_or_create(
+                name=row[column_mapping['attribute1']].strip(),
+                business=business,
+                defaults={'active': True}
+            )
+            attr2, _ = Attribute.objects.get_or_create(
+                name=row[column_mapping['attribute2']].strip(),
+                business=business,
+                defaults={'active': True}
+            )
+            
+            # Create question pair
+            pair = QuestionPair.objects.create(
+                business=business,
+                attribute1=attr1,
+                attribute2=attr2,
+                statement_a=row[column_mapping['statement_a']].strip(),
+                statement_b=row[column_mapping['statement_b']].strip(),
+                order=len(pairs) + 1
+            )
+            pairs.append(pair)
+        
+        # Mark business as having uploaded assessment template
+        business.assessment_template_uploaded = True
+        business.save()
+        
+        return JsonResponse({
+            "message": f"Successfully imported {len(pairs)} question pairs",
+            "count": len(pairs)
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            "error": f"Unexpected error importing questions: {str(e)}"
+        }, status=400)
 
 @login_required
 @user_passes_test(is_hr_user)

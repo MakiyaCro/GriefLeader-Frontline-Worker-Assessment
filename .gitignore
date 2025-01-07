@@ -25,3 +25,5 @@ FrontLWAA/__pycache__/wsgi.cpython-311.pyc
 FrontLWAA/__pycache__/settings.cpython-311.pyc
 FrontLWAA/__pycache__/urls.cpython-311.pyc
 node_modules/
+baseapp/migrations/0003_business_assessment_template_uploaded.py
+baseapp/migrations/__pycache__/0003_business_assessment_template_uploaded.cpython-311.pyc
