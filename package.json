@@ -27,5 +27,10 @@
     "react-dom": "^19.0.0",
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "lucide-react": "^0.471.1",
+    "papaparse": "^5.5.1",
+    "recharts": "^2.15.0"
   }
 }

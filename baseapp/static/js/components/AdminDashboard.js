@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BenchmarkSection from './BenchmarkSection';
 
 const AdminDashboard = () => {
   const [businesses, setBusinesses] = useState([]);
@@ -9,10 +10,17 @@ const AdminDashboard = () => {
   const [success, setSuccess] = useState(null);
   const [showDeleteBusinessConfirmation, setShowDeleteBusinessConfirmation] = useState(false);
   const [showBusinessForm, setShowBusinessForm] = useState(false);
+  const [showAddHRUserModal, setShowAddHRUserModal] = useState(false);
   const [newBusinessData, setNewBusinessData] = useState({
     name: '',
     slug: '',
     primaryColor: '#000000'
+  });
+  const [newHRUser, setNewHRUser] = useState({
+    email: '',
+    first_name: '',
+    last_name: '',
+    password: ''
   });
 
   // Fetch businesses when component mounts
@@ -43,6 +51,18 @@ const AdminDashboard = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch business details
+  const fetchBusinessDetails = async (businessId) => {
+    try {
+      const response = await fetch(`/api/businesses/${businessId}/details/`);
+      if (!response.ok) throw new Error('Failed to fetch business details');
+      const data = await response.json();
+      setBusinessDetails(data);
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -113,6 +133,60 @@ const AdminDashboard = () => {
     }
   };
 
+  // Add HR User
+  const handleAddHRUser = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedBusiness) {
+      setError('No business selected');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch('/api/hr-users/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({
+          ...newHRUser,
+          business_id: selectedBusiness.id
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add HR user');
+      }
+
+      // Refresh business details to show new HR user
+      await fetchBusinessDetails(selectedBusiness.id);
+      
+      // Close the modal
+      setShowAddHRUserModal(false);
+      
+      // Reset form
+      setNewHRUser({
+        email: '',
+        first_name: '',
+        last_name: '',
+        password: ''
+      });
+      
+      // Show success message
+      setSuccess('HR user added successfully');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Delete business
   const handleDeleteBusiness = async () => {
     if (!selectedBusiness) return;
@@ -141,6 +215,46 @@ const AdminDashboard = () => {
       
       // Show success message
       setSuccess('Business deleted successfully');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Upload Assessment Template
+  const handleAssessmentTemplateUpload = async (event) => {
+    if (!selectedBusiness) return;
+
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/businesses/${selectedBusiness.id}/upload-template/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload assessment template');
+      }
+
+      // Refresh business details
+      await fetchBusinessDetails(selectedBusiness.id);
+      
+      // Show success message
+      setSuccess('Assessment template uploaded successfully');
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
@@ -231,7 +345,16 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-2 gap-8">
                 {/* HR Users Section */}
                 <div className="bg-gray-50 p-6 rounded-lg">
-                  <h2 className="text-xl font-semibold mb-4">HR Users</h2>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">HR Users</h2>
+                    <button 
+                      onClick={() => setShowAddHRUserModal(true)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      Add HR User
+                    </button>
+                  </div>
+                  
                   {businessDetails.hr_users.length === 0 ? (
                     <p className="text-gray-500">No HR users found</p>
                   ) : (
@@ -258,14 +381,27 @@ const AdminDashboard = () => {
                       ))}
                     </div>
                   )}
-                  <button className="mt-4 w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                    Add HR User
-                  </button>
                 </div>
 
                 {/* Assessment Pairs Section */}
                 <div className="bg-gray-50 p-6 rounded-lg">
-                  <h2 className="text-xl font-semibold mb-4">Assessment Pairs</h2>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">Assessment Pairs</h2>
+                    <label 
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
+                    >
+                      Upload CSV
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleAssessmentTemplateUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    </div>
+                    
+
+                  
                   {businessDetails.question_pairs.length === 0 ? (
                     <p className="text-gray-500">No assessment pairs found</p>
                   ) : (
@@ -293,7 +429,9 @@ const AdminDashboard = () => {
                   )}
                 </div>
               </div>
-            )}
+              )}
+              {/* Add BenchmarkSection here, right after the grid */}
+                <BenchmarkSection businessDetails={businessDetails} />  
           </div>
         )}
       </div>
@@ -348,6 +486,82 @@ const AdminDashboard = () => {
                   className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                 >
                   Create Business
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add HR User Modal */}
+      {showAddHRUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h2 className="text-2xl font-bold mb-6">Add HR User</h2>
+            <form onSubmit={handleAddHRUser} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newHRUser.email}
+                  onChange={(e) => setNewHRUser({...newHRUser, email: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  value={newHRUser.first_name}
+                  onChange={(e) => setNewHRUser({...newHRUser, first_name: e.target.value})}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={newHRUser.last_name}
+                  onChange={(e) => setNewHRUser({...newHRUser, last_name: e.target.value})}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={newHRUser.password}
+                  onChange={(e) => setNewHRUser({...newHRUser, password: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddHRUserModal(false)}
+                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Add User
                 </button>
               </div>
             </form>

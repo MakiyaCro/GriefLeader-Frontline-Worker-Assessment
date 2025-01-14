@@ -514,134 +514,187 @@ def admin_dashboard(request):
     
     return render(request, 'baseapp/admin/dashboard.html', context)
 
+@require_http_methods(["GET"])
 @user_passes_test(is_admin)
-def create_benchmark_batch(request, business_id):
-    """Create a new benchmark batch and process uploaded file"""
-    business = get_object_or_404(Business, id=business_id)
-    
-    if request.method == 'POST':
-        form = BenchmarkBatchForm(request.POST, request.FILES)
-        if form.is_valid():
-            batch = form.save(commit=False)
-            batch.business = business
-            batch.created_by = request.user
-            batch.save()
-            
-            try:
-                # Read the uploaded file
-                if batch.data_file.name.endswith('.csv'):
-                    df = pd.read_csv(batch.data_file)
-                else:
-                    df = pd.read_excel(batch.data_file)
-                
-                # Validate required columns
-                required_columns = ['name', 'email']
-                if not all(col in df.columns for col in required_columns):
-                    raise ValueError("Missing required columns: name and email")
-                
-                # Create assessments for each person
-                assessment_data = []
-                for _, row in df.iterrows():
-                    assessment = Assessment(
-                        business=business,
-                        assessment_type='benchmark',
-                        benchmark_batch=batch,
-                        candidate_name=row['name'],
-                        candidate_email=row['email'],
-                        position='Benchmark Assessment',
-                        region=row.get('region', 'N/A'),
-                        manager_name=request.user.get_full_name() or request.user.username,
-                        manager_email=request.user.email,
-                        created_by=request.user
-                    )
-                    assessment.save()
-                    
-                    # Prepare email data
-                    subject = f'Benchmark Assessment for {business.name}'
-                    message = f"""
-                    Hello {row['name']},
-                    
-                    You have been selected to participate in a benchmark assessment for {business.name}.
-                    Please click the following link to complete your assessment:
-                    
-                    {request.build_absolute_uri(f'/assessment/{assessment.unique_link}/')}
-                    
-                    Your participation is greatly appreciated.
-                    
-                    Best regards,
-                    {request.user.get_full_name() or request.user.username}
-                    """
-                    
-                    assessment_data.append((
-                        subject,
-                        message,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [row['email']]
-                    ))
-                
-                # Send all emails
-                send_mass_mail(assessment_data)
-                
-                batch.processed = True
-                batch.save()
-                
-                messages.success(
-                    request, 
-                    f'Successfully created {len(df)} benchmark assessments and sent invitations.'
-                )
-                return redirect('admin_dashboard')
-                
-            except Exception as e:
-                batch.delete()  # Clean up the batch if processing fails
-                messages.error(request, f'Error processing file: {str(e)}')
-                return redirect('create_benchmark_batch', business_id=business_id)
-    else:
-        form = BenchmarkBatchForm()
-    
-    return render(request, 'baseapp/admin/create_benchmark_batch.html', {
-        'form': form,
-        'business': business
-    })
+def benchmark_emails(request, business_id):
+    """Get all benchmark emails for a business"""
+    try:
+        # Get all benchmark assessments for the business
+        assessments = Assessment.objects.filter(
+            business_id=business_id,
+            assessment_type='benchmark'
+        ).values(
+            'candidate_email',
+            'region',
+            'completed',
+            'unique_link'
+        )
+        
+        # Format the data
+        emails = [{
+            'email': assessment['candidate_email'],
+            'region': assessment['region'],
+            'sent': bool(assessment['unique_link']),  # If has link, it was sent
+            'completed': assessment['completed']
+        } for assessment in assessments]
+        
+        return JsonResponse({'emails': emails})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
+@require_http_methods(["POST"])
 @user_passes_test(is_admin)
-def view_benchmark_results(request, business_id):
-    """View benchmark results for a specific business"""
-    business = get_object_or_404(Business, id=business_id)
-    benchmark_batches = BenchmarkBatch.objects.filter(business=business)
-    
-    # Calculate average scores for each attribute
-    from django.db.models import Avg
-    from .models import Attribute, AssessmentResponse
-    
-    attributes = Attribute.objects.filter(business=business, active=True)
-    benchmark_data = {}
-    
-    for attribute in attributes:
-        # Get all completed benchmark assessments
-        benchmark_responses = AssessmentResponse.objects.filter(
-            assessment__business=business,
+def add_benchmark_emails(request, business_id):
+    """Add new benchmark emails"""
+    try:
+        data = json.loads(request.body)
+        emails = data.get('emails', [])
+        
+        created_assessments = []
+        for email_data in emails:
+            # Check if assessment already exists
+            existing = Assessment.objects.filter(
+                business_id=business_id,
+                assessment_type='benchmark',
+                candidate_email=email_data['email']
+            ).first()
+            
+            if not existing:
+                # Create new assessment
+                assessment = Assessment.objects.create(
+                    business_id=business_id,
+                    assessment_type='benchmark',
+                    candidate_email=email_data['email'],
+                    candidate_name=email_data['email'].split('@')[0],  # Basic name from email
+                    region=email_data['region'],
+                    position='Benchmark Assessment',
+                    manager_name=request.user.get_full_name() or request.user.username,
+                    manager_email=request.user.email,
+                    created_by=request.user
+                )
+                created_assessments.append(assessment)
+        
+        return JsonResponse({
+            'message': f'Successfully added {len(created_assessments)} new benchmark emails'
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@require_http_methods(["POST"])
+@user_passes_test(is_admin)
+def send_benchmark_email(request, business_id):
+    """Send or resend benchmark assessment email"""
+    try:
+        data = json.loads(request.body)
+        email = data.get('email')
+        
+        # Get the assessment
+        assessment = Assessment.objects.get(
+            business_id=business_id,
+            assessment_type='benchmark',
+            candidate_email=email
+        )
+        
+        # Generate new unique link
+        assessment.unique_link = get_random_string(64)
+        assessment.save()
+        
+        # Generate the assessment URL
+        assessment_url = request.build_absolute_uri(
+            reverse('baseapp:take_assessment', args=[assessment.unique_link])
+        )
+        
+        # Send email
+        subject = f'Benchmark Assessment for {assessment.business.name}'
+        message = f"""
+        Hello,
+        
+        You have been selected to participate in a benchmark assessment for {assessment.business.name}.
+        
+        Please click the following link to complete your assessment:
+        {assessment_url}
+        
+        This is a new link for your assessment. Any previous links sent will no longer work.
+        
+        Best regards,
+        {assessment.manager_name}
+        """
+        
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+        
+        return JsonResponse({
+            'message': f'Successfully sent benchmark assessment email to {email}'
+        })
+    except Assessment.DoesNotExist:
+        return JsonResponse({
+            'error': 'Assessment not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@require_http_methods(["GET"])
+@user_passes_test(is_admin)
+def benchmark_results(request, business_id):
+    """Get benchmark results, optionally filtered by region"""
+    print(f"Fetching benchmark results for business {business_id}")  # Debug log
+    try:
+        region = request.GET.get('region', 'all')
+        
+        # Start with all completed benchmark assessments
+        assessments = AssessmentResponse.objects.filter(
+            assessment__business_id=business_id,
             assessment__assessment_type='benchmark',
             assessment__completed=True
         )
         
-        scores = []
-        for response in benchmark_responses:
-            score = response.get_score_for_attribute(attribute)
-            if score is not None:
-                scores.append(score)
+        # Apply region filter if specified
+        if region != 'all':
+            assessments = assessments.filter(assessment__region=region)
         
-        if scores:
-            avg_score = sum(scores) / len(scores)
-            benchmark_data[attribute.name] = {
-                'average': avg_score,
-                'count': len(scores)
-            }
-    
-    return render(request, 'baseapp/admin/benchmark_results.html', {
-        'business': business,
-        'benchmark_data': benchmark_data,
-        'batches': benchmark_batches
-    })
+        # If no completed assessments, return empty results instead of error
+        if not assessments.exists():
+            return JsonResponse({'results': []})
+        
+        # Get all attributes for the business
+        attributes = Attribute.objects.filter(
+            business_id=business_id,
+            active=True
+        )
+        
+        # Calculate results for each attribute
+        results = []
+        print(f"Found {assessments.count()} completed assessments")  # Debug log
+        for attribute in attributes:
+            total_score = 0
+            responses = 0
+            
+            for assessment_response in assessments:
+                score = assessment_response.get_score_for_attribute(attribute)
+                if score is not None:
+                    total_score += float(score)  # Ensure we're working with float values
+                    responses += 1
+            
+            if responses > 0:
+                results.append({
+                    'attribute': attribute.name,
+                    'score': round(total_score / responses, 2),  # Round to 2 decimal places
+                    'responses': responses
+                })
+        
+        return JsonResponse({'results': results})
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e),
+            'results': []
+        }, status=500)
+
+
 
 @require_http_methods(["POST"])
 @user_passes_test(is_admin)
@@ -877,10 +930,13 @@ def dashboard(request):
 def create_assessment(request):
     """View for HR users to create new assessments"""
     if request.method == 'POST':
-        form = AssessmentCreationForm(request.POST)
+        # Pass the current user's business to the form
+        form = AssessmentCreationForm(request.POST, business=request.user.business)
         if form.is_valid():
             assessment = form.save(commit=False)
             assessment.created_by = request.user
+            # Explicitly set the business
+            assessment.business = request.user.business
             assessment.save()
             
             # Generate assessment link

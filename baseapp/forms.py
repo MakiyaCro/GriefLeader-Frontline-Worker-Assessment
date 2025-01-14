@@ -38,12 +38,15 @@ class AssessmentCreationForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        self.business = kwargs.pop('business', None)
+        # Accept business parameter, defaulting to None
+        business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
+        self.business = business
 
     def clean_candidate_email(self):
         email = self.cleaned_data['candidate_email']
-        if Assessment.objects.filter(
+        # Only perform check if business is set
+        if self.business and Assessment.objects.filter(
             candidate_email=email,
             completed=False,
             business=self.business
@@ -86,7 +89,7 @@ class AssessmentResponseForm(forms.Form):
         question_pairs = kwargs.pop('question_pairs', [])
         super().__init__(*args, **kwargs)
         
-        for pair in question_pairs:
+        for index, pair in enumerate(question_pairs, start=1):
             field_name = f'question_{pair.id}'
             self.fields[field_name] = forms.ChoiceField(
                 choices=[
@@ -98,7 +101,7 @@ class AssessmentResponseForm(forms.Form):
                     'required': True,
                     'data-question-id': pair.id
                 }),
-                label=f'{pair.attribute1} vs {pair.attribute2}',
+                label=f'Statement Pairing {index}',  # Generic labeling
                 required=True,
                 error_messages={
                     'required': 'Please select an answer for this question.'

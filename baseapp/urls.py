@@ -22,8 +22,11 @@ urlpatterns = [
     
     # Admin Dashboard URLs
     path('manage/dashboard/', views.admin_dashboard, name='admin_dashboard'),
-    path('manage/business/<int:business_id>/benchmarks/', views.create_benchmark_batch, name='create_benchmark_batch'),
-    path('manage/business/<int:business_id>/results/', views.view_benchmark_results, name='view_benchmark_results'),
+    # Benchmark Management URLs
+    path('api/businesses/<int:business_id>/benchmark-emails/', views.benchmark_emails, name='benchmark-emails'),
+    path('api/businesses/<int:business_id>/add-benchmark-emails/',views.add_benchmark_emails,name='add-benchmark-emails'),
+    path('api/businesses/<int:business_id>/send-benchmark-email/',views.send_benchmark_email,name='send-benchmark-email'),
+    path('api/businesses/<int:business_id>/benchmark-results/',views.benchmark_results,name='benchmark-results'),
 
     # New API endpoints for Admin Dashboard
     path('api/businesses/', views.business_list_create, name='business-list-create'),
@@ -39,4 +42,6 @@ urlpatterns = [
     path('api/businesses/list/', views.list_businesses, name='list-businesses'),
     path('api/businesses/<int:business_id>/details/', views.business_details, name='business-details'),
     path('api/businesses/<int:business_id>/upload-template/', views.upload_assessment_template, name='upload-assessment-template'),
+
+    
 ]
