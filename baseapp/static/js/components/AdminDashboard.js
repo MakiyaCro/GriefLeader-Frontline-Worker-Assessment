@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import BenchmarkSection from './BenchmarkSection';
+import AssessmentSection from './AssessmentSection';
 
 const AdminDashboard = () => {
   const [businesses, setBusinesses] = useState([]);
@@ -431,7 +432,8 @@ const AdminDashboard = () => {
               </div>
               )}
               {/* Add BenchmarkSection here, right after the grid */}
-                <BenchmarkSection businessDetails={businessDetails} />  
+              <BenchmarkSection businessDetails={businessDetails} />
+              <AssessmentSection businessDetails={businessDetails} />
           </div>
         )}
       </div>

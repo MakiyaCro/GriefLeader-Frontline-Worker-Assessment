@@ -3,7 +3,30 @@ from docx2pdf import convert
 import os
 from datetime import datetime
 from django.conf import settings
-from baseapp.models import QuestionResponse, Attribute
+from django.db.models import Avg
+from baseapp.models import QuestionResponse, Attribute, AssessmentResponse
+
+def get_benchmark_score_for_attribute(business, attribute):
+    """Calculate benchmark score for a specific attribute"""
+    benchmark_responses = AssessmentResponse.objects.filter(
+        assessment__business=business,
+        assessment__assessment_type='benchmark',
+        assessment__completed=True
+    )
+    
+    if not benchmark_responses.exists():
+        return None
+        
+    total_score = 0
+    responses = 0
+    
+    for response in benchmark_responses:
+        score = response.get_score_for_attribute(attribute)
+        if score is not None:
+            total_score += score
+            responses += 1
+    
+    return (total_score / responses) if responses > 0 else None
 
 def generate_assessment_report(assessment_response):
     """
@@ -54,7 +77,10 @@ def generate_assessment_report(assessment_response):
         table = doc.tables[0]
         
         # Get all active attributes
-        attributes = Attribute.objects.filter(active=True).order_by('order')
+        attributes = Attribute.objects.filter(
+            business=assessment.business,
+            active=True
+        ).order_by('order')
         
         # Start from row 1 to skip header
         for row in table.rows[1:]:
@@ -74,10 +100,18 @@ def generate_assessment_report(assessment_response):
                     # Calculate and format candidate score
                     candidate_score = assessment_response.get_score_for_attribute(attr)
                     
+                    # Get benchmark score
+                    benchmark_score = get_benchmark_score_for_attribute(assessment.business, attr)
+                    
                     # Update the "Candidate" column (index 2)
                     if len(row.cells) > 2:
                         score_cell = row.cells[2]
-                        score_cell.text = f"{candidate_score:.1f}%"
+                        score_cell.text = f"{candidate_score:.1f}%" if candidate_score is not None else "N/A"
+                    
+                    # Update the "Benchmark" column (index 3)
+                    if len(row.cells) > 3:
+                        benchmark_cell = row.cells[3]
+                        benchmark_cell.text = f"{benchmark_score:.1f}%" if benchmark_score is not None else "N/A"
                         
             except Exception as e:
                 print(f"Error processing attribute {attribute_name}: {str(e)}")
