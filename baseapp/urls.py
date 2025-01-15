@@ -44,6 +44,9 @@ urlpatterns = [
     #--admin assessment
     path('api/businesses/<int:business_id>/assessments/', views.business_assessments, name='business-assessments'),
     path('api/businesses/<int:business_id>/create-assessment/', views.admin_create_assessment, name='admin-create-assessment'),
+    path('api/admin/assessments/<int:assessment_id>/preview/', views.admin_preview_assessment, name='admin-preview-assessment'),
+    path('api/admin/assessments/<int:assessment_id>/download/', views.admin_download_assessment, name='admin-download-assessment'),
+    path('api/admin/assessments/<int:assessment_id>/resend/', views.admin_resend_assessment, name='admin-resend-assessment'),
 
     #hr
     path('dashboard/', views.dashboard, name='dashboard'),
@@ -52,13 +55,4 @@ urlpatterns = [
     path('assessment/preview/<int:assessment_id>/', views.preview_assessment_report, name='preview_assessment_report'),
     path('assessment/download/<int:assessment_id>/', views.download_assessment_report, name='download_assessment_report'),
 
-
-    
-    
-
-    
-    
-    
-
-    
 ]

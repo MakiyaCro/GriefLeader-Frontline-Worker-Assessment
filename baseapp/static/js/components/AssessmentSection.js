@@ -61,7 +61,7 @@ const AssessmentSection = ({ businessDetails }) => {
 
   const handleResendAssessment = async (assessment) => {
     try {
-      const response = await fetch(`/api/businesses/${businessDetails.business.id}/assessments/${assessment.id}/resend/`, {
+      const response = await fetch(`/api/admin/assessments/${assessment.id}/resend/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -194,14 +194,14 @@ const AssessmentSection = ({ businessDetails }) => {
             </div>
             <div className="p-4 h-5/6">
               <iframe
-                src={`/assessment/preview/${selectedAssessment.id}/`}
+                src={`/api/admin/assessments/${selectedAssessment.id}/preview/`}
                 className="w-full h-full border-0"
               />
             </div>
             <div className="flex justify-end space-x-4 p-4 border-t">
               <button
                 onClick={() => {
-                  window.location.href = `/assessment/download/${selectedAssessment.id}/`;
+                  window.location.href = `/api/admin/assessments/${selectedAssessment.id}/download/`;
                 }}
                 className="inline-flex items-center px-4 py-2 rounded text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
               >

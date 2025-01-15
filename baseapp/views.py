@@ -879,6 +879,106 @@ Best regards,
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
+@require_http_methods(["GET"])
+@user_passes_test(is_admin)
+def admin_preview_assessment(request, assessment_id):
+    """Admin view to preview assessment report PDF"""
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    if not assessment.completed:
+        raise Http404("Assessment not completed")
+        
+    response = get_object_or_404(AssessmentResponse, assessment=assessment)
+    
+    # Define the report path
+    reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
+    pdf_filename = f'assessment_report_{assessment.unique_link}.pdf'
+    pdf_path = os.path.join(reports_dir, pdf_filename)
+    
+    try:
+        # Open and return the PDF file
+        pdf_file = open(pdf_path, 'rb')
+        response = FileResponse(pdf_file, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{pdf_filename}"'
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
+        
+    except FileNotFoundError:
+        # If PDF doesn't exist, generate it
+        try:
+            from .utils.report_generator import generate_assessment_report
+            pdf_path = generate_assessment_report(response)
+            pdf_file = open(pdf_path, 'rb')
+            response = FileResponse(pdf_file, content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="{pdf_filename}"'
+            response['X-Frame-Options'] = 'SAMEORIGIN'
+            return response
+            
+        except Exception as e:
+            print(f"Error generating PDF: {str(e)}")
+            raise Http404("Error generating PDF report")
+
+@require_http_methods(["GET"])
+@user_passes_test(is_admin)
+def admin_download_assessment(request, assessment_id):
+    """Admin view to download assessment report"""
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    try:
+        response = AssessmentResponse.objects.get(assessment=assessment)
+        pdf_path = generate_assessment_report(response)
+        response = FileResponse(
+            open(pdf_path, 'rb'), 
+            content_type='application/pdf'
+        )
+        response['Content-Disposition'] = f'attachment; filename="assessment_report_{assessment.candidate_name}.pdf"'
+        return response
+    except AssessmentResponse.DoesNotExist:
+        raise Http404("Assessment response not found")
+
+@require_http_methods(["POST"])
+@user_passes_test(is_admin)
+def admin_resend_assessment(request, assessment_id):
+    """Admin endpoint to resend assessment email"""
+    try:
+        assessment = get_object_or_404(Assessment, id=assessment_id)
+        
+        # Generate new unique link
+        assessment.unique_link = get_random_string(64)
+        assessment.save()
+        
+        # Generate the assessment URL
+        assessment_url = request.build_absolute_uri(
+            reverse('baseapp:take_assessment', args=[assessment.unique_link])
+        )
+        
+        # Send email
+        subject = f'Assessment for {assessment.position}'
+        message = f"""
+        Hello {assessment.candidate_name},
+        
+        You have been invited to complete an assessment for the {assessment.position} position.
+        
+        Please click the following link to complete your assessment:
+        {assessment_url}
+        
+        This is a new link for your assessment. Any previous links sent will no longer work.
+        
+        Best regards,
+        {assessment.manager_name}
+        """
+        
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[assessment.candidate_email],
+            fail_silently=False,
+        )
+        
+        return JsonResponse({
+            'message': f'Successfully resent assessment email to {assessment.candidate_email}'
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
  
 #hr views
 @login_required
@@ -963,7 +1063,7 @@ def resend_assessment(request, assessment_id):
         
         # Generate the full assessment URL
         assessment_url = request.build_absolute_uri(
-            reverse('take_assessment', args=[assessment.unique_link])
+            reverse('baseapp:take_assessment', args=[assessment.unique_link])
         )
         
         # Email content
@@ -1006,8 +1106,8 @@ Best regards,
             'There was an error resending the assessment. Please try again.'
         )
     
-    # Redirect back to assessment list
-    return redirect('assessment_list')
+    # Change this line to redirect to the dashboard instead of assessment_list
+    return redirect('baseapp:dashboard')
 
 @login_required
 @user_passes_test(is_hr_user)
@@ -1069,15 +1169,3 @@ def download_assessment_report(request, assessment_id):
     except AssessmentResponse.DoesNotExist:
         messages.error(request, 'Assessment response not found.')
         return redirect('baseapp:dashboard')
-    
-
-
-
-
-
-
-
-
-
-
-
