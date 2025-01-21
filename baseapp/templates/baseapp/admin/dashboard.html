@@ -12,6 +12,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Load the bundled JavaScript -->
-{% render_bundle 'main' %}
+{% render_bundle 'main' 'js' attrs='defer' %}
 {% endblock %}

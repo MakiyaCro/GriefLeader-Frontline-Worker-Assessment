@@ -140,8 +140,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Static files configuration
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
-    BASE_DIR / "baseapp" / "static",
-    BASE_DIR / "baseapp" / "webpack-dist",
+    ("webpack-dist", BASE_DIR / "webpack-dist"),
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
@@ -151,7 +150,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 WEBPACK_LOADER = {
     'DEFAULT': {
         'CACHE': not DEBUG,
-        'STATS_FILE': os.path.join(BASE_DIR, 'baseapp/webpack-stats.json'),
+        'STATS_FILE': BASE_DIR / 'webpack-stats.json',
         'POLL_INTERVAL': 0.1,
         'TIMEOUT': None,
         'IGNORE': [r'.+\.hot-update.js', r'.+\.map'],
