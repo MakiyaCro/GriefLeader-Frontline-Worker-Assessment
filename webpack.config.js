@@ -4,8 +4,9 @@ module.exports = {
   entry: path.resolve(__dirname, 'src/admin-dashboard.js'),
   output: {
     filename: 'bundle.js',
-    path: path.resolve(__dirname, 'baseapp/static/dist'),
-    clean: true
+    path: path.resolve(__dirname, 'baseapp/static/js'),
+    clean: true,
+    publicPath: '/static/js/'
   },
   module: {
     rules: [
