@@ -1,37 +1,38 @@
 # Python
-*.pyc
 __pycache__/
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
 env/
-venv/
-.env
-db.sqlite3
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node
+node_modules/
 
 # Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
 staticfiles/
-media/
 
-# Webpack
-node_modules/
-baseapp/webpack-dist/
-baseapp/static/dist/
-baseapp/static/js/
-*.bundle.js
-*.bundle.js.map
-*.bundle.js.LICENSE.txt
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
+# Do NOT ignore these files
+!baseapp/webpack-stats.json
+!baseapp/webpack-dist/
 
 
 baseapp/migrations/
