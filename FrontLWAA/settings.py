@@ -142,5 +142,6 @@ django_heroku.settings(locals(), staticfiles=False)
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "baseapp" / "static",
+    BASE_DIR / "baseapp" / "webpack-dist",
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
