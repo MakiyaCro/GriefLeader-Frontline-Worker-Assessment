@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-  entry: path.resolve(__dirname, 'baseapp/static/js/admin-dashboard.js'),
+  entry: path.resolve(__dirname, 'src/admin-dashboard.js'),
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'baseapp/static/dist'),
