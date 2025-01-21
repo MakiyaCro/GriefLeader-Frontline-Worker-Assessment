@@ -1,1 +1,1 @@
-web: gunicorn FrontLWAA.wsgi
+web: python manage.py collectstatic --noinput && gunicorn FrontLWAA.wsgi
