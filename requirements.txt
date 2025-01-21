@@ -5,3 +5,4 @@ pandas==2.2.3
 python_docx==1.1.2
 django-crispy-forms==2.3
 crispy_bootstrap5==2024.10
+whitenoise==6.8.2

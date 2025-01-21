@@ -32,6 +32,7 @@ baseapp/static/js/
 .DS_Store
 Thumbs.db
 
+
 baseapp/__init__.py
 baseapp/__pycache__/
 baseapp/management/__init__.py

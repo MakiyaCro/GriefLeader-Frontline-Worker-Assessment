@@ -50,6 +50,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add Whitenoise middleware here
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -135,13 +136,16 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Call django_heroku settings with staticfiles=False
-django_heroku.settings(locals(), staticfiles=False)
-
-# Static files configuration - place these after django_heroku.settings()
+# Static files configuration
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "baseapp" / "static",
     BASE_DIR / "baseapp" / "webpack-dist",
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Whitenoise configuration
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Call django_heroku settings with staticfiles=False
+django_heroku.settings(locals(), staticfiles=False)
