@@ -3,8 +3,14 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node server.js",
     "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch"
+    "dev": "webpack --mode development --watch",
+    "heroku-postbuild": "npm run build"
+  },
+  "engines": {
+    "node": "20.x",
+    "npm": "10.x"
   },
   "repository": {
     "type": "git",
@@ -23,14 +29,15 @@
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-react": "^7.26.3",
     "babel-loader": "^9.2.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
+    "express": "^4.21.2",
     "lucide-react": "^0.471.1",
     "papaparse": "^5.5.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "recharts": "^2.15.0"
   }
 }
