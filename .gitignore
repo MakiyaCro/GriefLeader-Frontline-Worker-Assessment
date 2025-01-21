@@ -33,16 +33,8 @@ baseapp/static/js/
 Thumbs.db
 
 
-baseapp/__init__.py
-baseapp/__pycache__/
-baseapp/management/__init__.py
-baseapp/management/__pycache__/
-baseapp/management/commands/__init__.py
+
 baseapp/migrations/
-baseapp/utils/__init__.py
-baseapp/utils/__pycache__/
-FrontLWAA/__init__.py
-FrontLWAA/__pycache__/
 node_modules/
 baseapp/migrations/
 media/assessment_reports/
