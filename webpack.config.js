@@ -3,10 +3,9 @@ const path = require('path');
 module.exports = {
   entry: path.resolve(__dirname, 'src/admin-dashboard.js'),
   output: {
-    filename: 'bundle.js',
-    path: path.resolve(__dirname, 'baseapp/static/js'),
-    clean: true,
-    publicPath: '/static/js/'
+    filename: '[name].[contenthash].js',
+    path: path.resolve(__dirname, 'baseapp/webpack-dist'),
+    clean: true
   },
   module: {
     rules: [
