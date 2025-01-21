@@ -17,8 +17,6 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -35,11 +33,9 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['*']
 
 # Application definition
-
 INSTALLED_APPS = [
     'baseapp.apps.BaseappConfig',
     'django.contrib.admin',
@@ -60,7 +56,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
 ]
 
 ROOT_URLCONF = 'FrontLWAA.urls'
@@ -83,10 +78,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'FrontLWAA.wsgi.application'
 
-
 # Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -94,12 +86,7 @@ DATABASES = {
     }
 }
 
-
 # Password validation
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
-
-
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -115,41 +102,25 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
-
-#STATIC_URL = 'static/'
-
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-#New Settings
+# Custom Settings
 AUTH_USER_MODEL = 'baseapp.CustomUser'
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
-LOGIN_URL = 'baseapp:login'  # Update with namespace
-LOGIN_REDIRECT_URL = 'baseapp:dashboard'  # Update with namespace
-LOGOUT_REDIRECT_URL = 'baseapp:login'  # Update with namespace
+LOGIN_URL = 'baseapp:login'
+LOGIN_REDIRECT_URL = 'baseapp:dashboard'
+LOGOUT_REDIRECT_URL = 'baseapp:login'
 
-
-# Email settings for development
+# Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = 'localhost'
 EMAIL_PORT = 25
@@ -164,12 +135,12 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# Call django_heroku settings with staticfiles=False
+django_heroku.settings(locals(), staticfiles=False)
 
-ALLOWED_HOSTS = ['*']
-
-django_heroku.settings(locals())
+# Static files configuration - place these after django_heroku.settings()
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "baseapp" / "static",
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATIC_URL = '/static/'
