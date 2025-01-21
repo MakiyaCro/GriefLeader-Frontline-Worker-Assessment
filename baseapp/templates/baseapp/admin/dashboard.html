@@ -1,5 +1,6 @@
 {% extends 'baseapp/base.html' %}
 {% load static %}
+{% load webpack_loader %}
 
 {% block extra_css %}
 <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
@@ -12,5 +13,5 @@
 
 {% block extra_js %}
 <!-- Load the bundled JavaScript -->
-<script src="{% static 'main.js' %}"></script>
+{% render_bundle 'main' %}
 {% endblock %}

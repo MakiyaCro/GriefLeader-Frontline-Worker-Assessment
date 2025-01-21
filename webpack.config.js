@@ -1,11 +1,13 @@
 const path = require('path');
+const BundleTracker = require('webpack-bundle-tracker');
 
 module.exports = {
   entry: path.resolve(__dirname, 'src/admin-dashboard.js'),
   output: {
     filename: '[name].[contenthash].js',
     path: path.resolve(__dirname, 'baseapp/webpack-dist'),
-    clean: true
+    clean: true,
+    publicPath: '/static/webpack-dist/',  // Add this line
   },
   module: {
     rules: [
@@ -21,6 +23,12 @@ module.exports = {
       }
     ]
   },
+  plugins: [
+    new BundleTracker({
+      path: path.resolve(__dirname, 'baseapp'),
+      filename: 'webpack-stats.json'
+    })
+  ],
   resolve: {
     extensions: ['.js', '.jsx']
   }

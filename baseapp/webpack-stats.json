@@ -1,0 +1,21 @@
+{
+  "status": "done",
+  "assets": {
+    "main.514b4f5dd2ca52bba0af.js": {
+      "name": "main.514b4f5dd2ca52bba0af.js",
+      "path": "D:\\griefleaders-applicatios\\Front-Line-Worker-Attribute-Assessment\\FrontLWAA\\baseapp\\webpack-dist\\main.514b4f5dd2ca52bba0af.js",
+      "publicPath": "/static/webpack-dist/main.514b4f5dd2ca52bba0af.js"
+    },
+    "main.514b4f5dd2ca52bba0af.js.LICENSE.txt": {
+      "name": "main.514b4f5dd2ca52bba0af.js.LICENSE.txt",
+      "path": "D:\\griefleaders-applicatios\\Front-Line-Worker-Attribute-Assessment\\FrontLWAA\\baseapp\\webpack-dist\\main.514b4f5dd2ca52bba0af.js.LICENSE.txt",
+      "publicPath": "/static/webpack-dist/main.514b4f5dd2ca52bba0af.js.LICENSE.txt"
+    }
+  },
+  "chunks": {
+    "main": [
+      "main.514b4f5dd2ca52bba0af.js"
+    ]
+  },
+  "publicPath": "/static/webpack-dist/"
+}
