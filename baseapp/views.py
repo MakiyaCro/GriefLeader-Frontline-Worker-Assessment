@@ -15,7 +15,7 @@ import pandas as pd
 import json
 import csv
 from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser
-from .forms import AssessmentCreationForm, AssessmentResponseForm, BenchmarkBatchForm
+from .forms import AssessmentCreationForm, AssessmentResponseForm, BenchmarkBatchForm, PasswordResetForm
 from .utils.report_generator import generate_assessment_report
 import os
 from io import StringIO
@@ -96,6 +96,24 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
     return redirect('baseapp:login')
+
+def password_reset_view(request):
+    """Handle password reset requests"""
+    if request.method == 'POST':
+        form = PasswordResetForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            # Here you would typically:
+            # 1. Generate a password reset token
+            # 2. Create a reset link with the token
+            # 3. Send the reset link via email
+            # For now, we'll just show a success message
+            messages.success(request, 'If an account exists with that email, you will receive password reset instructions.')
+            return redirect('baseapp:login')
+    else:
+        form = PasswordResetForm()
+    
+    return render(request, 'baseapp/password_reset.html', {'form': form})
 
 def take_assessment(request, unique_link):
     """View for candidates to take their assessment"""
