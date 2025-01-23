@@ -1,6 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Assessment, AssessmentResponse, QuestionResponse, Business, BenchmarkBatch, Attribute, QuestionPair
+from django.contrib.auth.password_validation import validate_password
+from .models import Assessment, AssessmentResponse, QuestionResponse, Business, BenchmarkBatch, Attribute, QuestionPair, CustomUser
 
 class BusinessForm(forms.ModelForm):
     """Form for creating and editing businesses"""
@@ -178,13 +179,41 @@ class LoginForm(forms.Form):
     )
 
 class PasswordResetForm(forms.Form):
-    """Form for password reset requests"""
     email = forms.EmailField(
-        widget=forms.EmailInput(attrs={'class': 'form-control'}),
-        help_text='Enter the email address associated with your account.'
+        label="Email",
+        max_length=254,
+        widget=forms.EmailInput(attrs={'class': 'form-control'})
     )
 
     def clean_email(self):
         email = self.cleaned_data['email']
-        # Add any additional email validation if needed
+        if not CustomUser.objects.filter(email=email).exists():
+            raise ValidationError("No account found with this email address. Please contact site admin")
         return email
+    
+class SetNewPasswordForm(forms.Form):
+    password1 = forms.CharField(
+        label="New Password",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text="Password must be at least 8 characters and contain letters, numbers, and special characters."
+    )
+    password2 = forms.CharField(
+        label="Confirm New Password",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
+
+    def clean_password1(self):
+        password1 = self.cleaned_data.get('password1')
+        try:
+            validate_password(password1)
+        except ValidationError as e:
+            raise ValidationError(list(e.messages))
+        return password1
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
+
+        if password1 and password2 and password1 != password2:
+            raise ValidationError("The two password fields didn't match.")

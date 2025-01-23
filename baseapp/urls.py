@@ -12,6 +12,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('password-reset/', views.password_reset_view, name='password_reset'),
+    path('password-reset/<str:token>/', views.password_reset_confirm, name='password_reset_confirm'),
     path('assessment/<str:unique_link>/', views.take_assessment, name='take_assessment'),
     path('thank-you/', views.thank_you, name='thank_you'),
 

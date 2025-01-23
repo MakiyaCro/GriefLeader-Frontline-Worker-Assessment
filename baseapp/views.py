@@ -15,7 +15,7 @@ import pandas as pd
 import json
 import csv
 from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser
-from .forms import AssessmentCreationForm, AssessmentResponseForm, BenchmarkBatchForm, PasswordResetForm
+from .forms import AssessmentCreationForm, AssessmentResponseForm, BenchmarkBatchForm, PasswordResetForm, SetNewPasswordForm
 from .utils.report_generator import generate_assessment_report
 import os
 from io import StringIO
@@ -98,25 +98,102 @@ def logout_view(request):
     return redirect('baseapp:login')
 
 def password_reset_view(request):
+    """Handle password reset request"""
     if request.method == 'POST':
         form = PasswordResetForm(request.POST)
         if form.is_valid():
+            email = form.cleaned_data['email']
+            user = CustomUser.objects.get(email=email)
+            
+            # Generate unique reset token
+            reset_token = get_random_string(64)
+            
+            # Store reset token in user's session with expiry
+            request.session[f'password_reset_{reset_token}'] = {
+                'user_id': user.id,
+                'expires': (timezone.now() + timezone.timedelta(hours=24)).isoformat()
+            }
+            
+            # Generate reset URL
+            reset_url = request.build_absolute_uri(
+                reverse('baseapp:password_reset_confirm', args=[reset_token])
+            )
+            
             try:
+                # Send reset email
                 send_mail(
                     subject='Password Reset Request',
-                    message='You requested a password reset. Here is your reset link: [Add reset link here]',
-                    from_email='flwaa@griefleaders.com',
-                    recipient_list=[form.cleaned_data['email']],
+                    message=f'''You requested a password reset.
+
+Click the following link to reset your password:
+{reset_url}
+
+This link will expire in 24 hours.
+
+If you did not request this reset, please ignore this email.''',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
                     fail_silently=False,
                 )
-                messages.success(request, 'If an account exists with that email, you will receive password reset instructions.')
+                messages.success(
+                    request,
+                    'Password reset instructions have been sent to your email.'
+                )
             except Exception as e:
                 print(f"Email error: {e}")  # For debugging
+                messages.error(
+                    request,
+                    'There was an error sending the reset email. Please try again.'
+                )
             return redirect('baseapp:login')
     else:
         form = PasswordResetForm()
     
     return render(request, 'baseapp/password_reset.html', {'form': form})
+
+def password_reset_confirm(request, token):
+    """Handle password reset confirmation"""
+    # Check if token exists and is valid
+    session_key = f'password_reset_{token}'
+    reset_data = request.session.get(session_key)
+    
+    if not reset_data:
+        messages.error(request, 'Invalid or expired password reset link.')
+        return redirect('baseapp:login')
+    
+    # Check if token has expired
+    expires = datetime.fromisoformat(reset_data['expires'])
+    if timezone.now() > expires:
+        del request.session[session_key]
+        messages.error(request, 'This password reset link has expired.')
+        return redirect('baseapp:login')
+    
+    # Get user
+    try:
+        user = CustomUser.objects.get(id=reset_data['user_id'])
+    except CustomUser.DoesNotExist:
+        messages.error(request, 'Invalid user account.')
+        return redirect('baseapp:login')
+    
+    if request.method == 'POST':
+        form = SetNewPasswordForm(request.POST)
+        if form.is_valid():
+            # Set new password
+            user.set_password(form.cleaned_data['password1'])
+            user.save()
+            
+            # Clean up session
+            del request.session[session_key]
+            
+            messages.success(
+                request,
+                'Your password has been successfully reset. Please log in with your new password.'
+            )
+            return redirect('baseapp:login')
+    else:
+        form = SetNewPasswordForm()
+    
+    return render(request, 'baseapp/password_reset_confirm.html', {'form': form})
 
 def take_assessment(request, unique_link):
     """View for candidates to take their assessment"""
