@@ -123,12 +123,13 @@ LOGIN_REDIRECT_URL = 'baseapp:dashboard'
 LOGOUT_REDIRECT_URL = 'baseapp:login'
 
 # Email settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.sendgrid.net'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'apikey'
 EMAIL_HOST_PASSWORD = os.environ.get('SENDGRID_API_KEY')
-DEFAULT_FROM_EMAIL = 'your-verified-sender@yourdomain.com'
+DEFAULT_FROM_EMAIL = 'crochieremakiya@gmail.com'
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
