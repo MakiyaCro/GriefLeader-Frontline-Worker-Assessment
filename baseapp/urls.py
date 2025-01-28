@@ -29,11 +29,13 @@ urlpatterns = [
     #--hr
     path('api/hr-users/<int:pk>/', views.hr_user_detail, name='hr-user-detail'),
     path('api/hr-users/', views.hr_user_list_create, name='hr-user-list-create'),
+    path('api/hr-users/<int:pk>/reset-password/', views.hr_user_reset_password, name='hr-user-reset-password'),
     path('api/businesses/<int:business_id>/hr-users/', views.business_hr_users, name='business-hr-users'),
 
     #--assessment info
     path('api/businesses/<int:business_id>/upload-template/', views.upload_assessment_template, name='upload-assessment-template'),
     path('api/question-pairs/', views.question_pair_list, name='question-pair-list'),
+    path('api/question-pairs/<int:pk>/', views.question_pair_detail, name='question-pair-detail'),
     path('api/attributes/', views.attribute_list, name='attribute-list'),
     
 

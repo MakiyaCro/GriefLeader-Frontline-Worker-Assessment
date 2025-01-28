@@ -559,6 +559,51 @@ def hr_user_list_create(request):
             "users": list(users.values('id', 'email', 'business_id', 'is_active'))
         })
 
+@require_http_methods(["POST"])
+@user_passes_test(is_admin)
+def hr_user_reset_password(request, pk):
+    try:
+        user = get_object_or_404(CustomUser, pk=pk, is_hr=True)
+        
+        # Generate reset token
+        reset_token = get_random_string(64)
+        
+        # Store reset token in user's session with expiry
+        request.session[f'password_reset_{reset_token}'] = {
+            'user_id': user.id,
+            'expires': (timezone.now() + timezone.timedelta(hours=24)).isoformat()
+        }
+        
+        # Generate reset URL
+        reset_url = request.build_absolute_uri(
+            reverse('baseapp:password_reset_confirm', args=[reset_token])
+        )
+        
+        # Send reset email
+        send_mail(
+            subject='Password Reset Request',
+            message=f'''A password reset has been requested for your account.
+
+Click the following link to reset your password:
+{reset_url}
+
+This link will expire in 24 hours.
+
+If you did not request this reset, please contact your administrator.''',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+        
+        return JsonResponse({
+            "message": "Password reset email sent successfully"
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            "error": f"Failed to process password reset: {str(e)}"
+        }, status=400)
+
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
 def business_hr_users(request, business_id):
@@ -572,31 +617,23 @@ def business_hr_users(request, business_id):
 @require_http_methods(["POST"])
 @user_passes_test(is_admin)
 def upload_assessment_template(request, business_id):
-    """
-    Upload assessment template for a business
-    """
     try:
         business = Business.objects.get(pk=business_id)
         
-        # Check if file is present
         if 'file' not in request.FILES:
             return JsonResponse({
                 "error": "No file uploaded. Please upload a CSV file."
             }, status=400)
         
         file = request.FILES['file']
-        
-        # Validate file type
         if not file.name.lower().endswith('.csv'):
             return JsonResponse({
                 "error": "Invalid file type. Please upload a CSV file."
             }, status=400)
 
-        # Use the existing import logic to process the file
         decoded_file = file.read().decode('utf-8')
         reader = csv.DictReader(StringIO(decoded_file))
         
-        # Define expected columns
         expected_columns = [
             ('attribute1', 'Attribute-A'), 
             ('attribute2', 'Attribute-B'), 
@@ -604,7 +641,6 @@ def upload_assessment_template(request, business_id):
             ('statement_b', 'Statement-B')
         ]
         
-        # Check if required columns exist
         found_columns = reader.fieldnames or []
         missing_columns = []
         column_mapping = {}
@@ -619,15 +655,26 @@ def upload_assessment_template(request, business_id):
         
         if missing_columns:
             return JsonResponse({
-                "error": f"Missing required columns: {', '.join(missing_columns)}. " 
-                         f"Found columns: {', '.join(found_columns)}"
+                "error": f"Missing required columns: {', '.join(missing_columns)}"
             }, status=400)
         
-        # Clear existing question pairs for this business
-        QuestionPair.objects.filter(business=business).delete()
+        # Create a set to track unique statement pairs
+        existing_pairs = set()
+        new_pairs = []
         
-        pairs = []
-        for row_num, row in enumerate(reader, start=2):
+        for row in reader:
+            # Create a unique identifier for this pair
+            pair_key = (
+                row[column_mapping['statement_a']].strip(),
+                row[column_mapping['statement_b']].strip()
+            )
+            
+            # Skip if we've seen this pair before
+            if pair_key in existing_pairs:
+                continue
+                
+            existing_pairs.add(pair_key)
+            
             # Get or create attributes
             attr1, _ = Attribute.objects.get_or_create(
                 name=row[column_mapping['attribute1']].strip(),
@@ -640,30 +687,87 @@ def upload_assessment_template(request, business_id):
                 defaults={'active': True}
             )
             
-            # Create question pair
-            pair = QuestionPair.objects.create(
+            # Check if this pair already exists in the database
+            existing_pair = QuestionPair.objects.filter(
                 business=business,
-                attribute1=attr1,
-                attribute2=attr2,
                 statement_a=row[column_mapping['statement_a']].strip(),
-                statement_b=row[column_mapping['statement_b']].strip(),
-                order=len(pairs) + 1
-            )
-            pairs.append(pair)
+                statement_b=row[column_mapping['statement_b']].strip()
+            ).first()
+            
+            if not existing_pair:
+                new_pairs.append(QuestionPair(
+                    business=business,
+                    attribute1=attr1,
+                    attribute2=attr2,
+                    statement_a=row[column_mapping['statement_a']].strip(),
+                    statement_b=row[column_mapping['statement_b']].strip(),
+                    order=len(new_pairs) + 1
+                ))
+        
+        # Bulk create new pairs
+        QuestionPair.objects.bulk_create(new_pairs)
         
         # Mark business as having uploaded assessment template
         business.assessment_template_uploaded = True
         business.save()
         
         return JsonResponse({
-            "message": f"Successfully imported {len(pairs)} question pairs",
-            "count": len(pairs)
+            "message": f"Successfully imported {len(new_pairs)} question pairs",
+            "count": len(new_pairs)
         })
     
     except Exception as e:
         return JsonResponse({
             "error": f"Unexpected error importing questions: {str(e)}"
         }, status=400)
+
+@require_http_methods(["PUT", "DELETE"])
+@user_passes_test(is_admin)
+def question_pair_detail(request, pk):
+    try:
+        pair = QuestionPair.objects.get(pk=pk)
+        
+        if request.method == "DELETE":
+            pair.delete()
+            return JsonResponse({"message": "Question pair deleted successfully"})
+            
+        elif request.method == "PUT":
+            data = json.loads(request.body)
+            
+            # Get or create attributes
+            attr1, _ = Attribute.objects.get_or_create(
+                name=data['attribute1'],
+                business=pair.business,
+                defaults={'active': True}
+            )
+            attr2, _ = Attribute.objects.get_or_create(
+                name=data['attribute2'],
+                business=pair.business,
+                defaults={'active': True}
+            )
+            
+            # Update pair
+            pair.attribute1 = attr1
+            pair.attribute2 = attr2
+            pair.statement_a = data['statement_a']
+            pair.statement_b = data['statement_b']
+            pair.save()
+            
+            return JsonResponse({
+                "message": "Question pair updated successfully",
+                "pair": {
+                    "id": pair.id,
+                    "attribute1__name": attr1.name,
+                    "attribute2__name": attr2.name,
+                    "statement_a": pair.statement_a,
+                    "statement_b": pair.statement_b
+                }
+            })
+            
+    except QuestionPair.DoesNotExist:
+        return JsonResponse({"error": "Question pair not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)

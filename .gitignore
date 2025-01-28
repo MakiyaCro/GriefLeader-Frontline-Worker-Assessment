@@ -39,3 +39,4 @@ baseapp/migrations/
 node_modules/
 baseapp/migrations/
 media/assessment_reports/
+data.json

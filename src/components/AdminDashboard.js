@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import BenchmarkSection from './BenchmarkSection';
 import AssessmentSection from './AssessmentSection';
+import QuestionPairManager from './QuestionPairManager';
+import HRUserManager from './HRUserManager';
 
 const AdminDashboard = () => {
   const [businesses, setBusinesses] = useState([]);
@@ -356,31 +358,73 @@ const AdminDashboard = () => {
                     </button>
                   </div>
                   
-                  {businessDetails.hr_users.length === 0 ? (
-                    <p className="text-gray-500">No HR users found</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {businessDetails.hr_users.map((user) => (
-                        <div 
-                          key={user.id} 
-                          className="flex justify-between items-center p-2 bg-white rounded shadow-sm"
-                        >
-                          <div>
-                            <p className="font-medium">{user.email}</p>
-                            <p className="text-sm text-gray-500">
-                              {user.first_name} {user.last_name}
-                            </p>
-                          </div>
-                          <span 
-                            className={`px-2 py-1 rounded text-xs ${
-                              user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {user.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                  {businessDetails && (
+                    businessDetails.hr_users.length === 0 ? (
+                      <p className="text-gray-500">No HR users found</p>
+                    ) : (
+                      <HRUserManager
+                        hrUsers={businessDetails.hr_users}
+                        onDeleteUser={async (userId) => {
+                          try {
+                            const response = await fetch(`/api/hr-users/${userId}/`, {
+                              method: 'DELETE',
+                              headers: {
+                                'X-CSRFToken': getCsrfToken(),
+                              }
+                            });
+                            
+                            if (!response.ok) throw new Error('Failed to delete HR user');
+                            
+                            // Refresh business details
+                            await fetchBusinessDetails(selectedBusiness.id);
+                            
+                            setSuccess('HR user deleted successfully');
+                            setTimeout(() => setSuccess(null), 3000);
+                          } catch (err) {
+                            setError(err.message);
+                          }
+                        }}
+                        onEditUser={async (userId, data) => {
+                          try {
+                            const response = await fetch(`/api/hr-users/${userId}/`, {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCsrfToken(),
+                              },
+                              body: JSON.stringify(data)
+                            });
+                            
+                            if (!response.ok) throw new Error('Failed to update HR user');
+                            
+                            // Refresh business details
+                            await fetchBusinessDetails(selectedBusiness.id);
+                            
+                            setSuccess('HR user updated successfully');
+                            setTimeout(() => setSuccess(null), 3000);
+                          } catch (err) {
+                            setError(err.message);
+                          }
+                        }}
+                        onResetPassword={async (userId) => {
+                          try {
+                            const response = await fetch(`/api/hr-users/${userId}/reset-password/`, {
+                              method: 'POST',
+                              headers: {
+                                'X-CSRFToken': getCsrfToken(),
+                              }
+                            });
+                            
+                            if (!response.ok) throw new Error('Failed to reset password');
+                            
+                            setSuccess('Password reset email sent successfully');
+                            setTimeout(() => setSuccess(null), 3000);
+                          } catch (err) {
+                            setError(err.message);
+                          }
+                        }}
+                      />
+                    )
                   )}
                 </div>
 
@@ -388,9 +432,7 @@ const AdminDashboard = () => {
                 <div className="bg-gray-50 p-6 rounded-lg">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold">Assessment Pairs</h2>
-                    <label 
-                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
-                    >
+                    <label className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer">
                       Upload CSV
                       <input
                         type="file"
@@ -399,34 +441,56 @@ const AdminDashboard = () => {
                         className="hidden"
                       />
                     </label>
-                    </div>
-                    
+                  </div>
 
-                  
                   {businessDetails.question_pairs.length === 0 ? (
                     <p className="text-gray-500">No assessment pairs found</p>
                   ) : (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {businessDetails.question_pairs.map((pair) => (
-                        <div 
-                          key={pair.id} 
-                          className="bg-white p-3 rounded shadow-sm"
-                        >
-                          <div className="flex justify-between mb-2">
-                            <span className="font-medium text-blue-600">
-                              {pair.attribute1__name}
-                            </span>
-                            <span className="font-medium text-blue-600">
-                              {pair.attribute2__name}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <p className="text-sm text-gray-700">{pair.statement_a}</p>
-                            <p className="text-sm text-gray-700">{pair.statement_b}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <QuestionPairManager
+                      questionPairs={businessDetails.question_pairs}
+                      onDeletePair={async (pairId) => {
+                        try {
+                          const response = await fetch(`/api/question-pairs/${pairId}/`, {
+                            method: 'DELETE',
+                            headers: {
+                              'X-CSRFToken': getCsrfToken(),
+                            }
+                          });
+                          
+                          if (!response.ok) throw new Error('Failed to delete question pair');
+                          
+                          // Refresh business details
+                          await fetchBusinessDetails(selectedBusiness.id);
+                          
+                          setSuccess('Question pair deleted successfully');
+                          setTimeout(() => setSuccess(null), 3000);
+                        } catch (err) {
+                          setError(err.message);
+                        }
+                      }}
+                      onEditPair={async (pairId, data) => {
+                        try {
+                          const response = await fetch(`/api/question-pairs/${pairId}/`, {
+                            method: 'PUT',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'X-CSRFToken': getCsrfToken(),
+                            },
+                            body: JSON.stringify(data)
+                          });
+                          
+                          if (!response.ok) throw new Error('Failed to update question pair');
+                          
+                          // Refresh business details
+                          await fetchBusinessDetails(selectedBusiness.id);
+                          
+                          setSuccess('Question pair updated successfully');
+                          setTimeout(() => setSuccess(null), 3000);
+                        } catch (err) {
+                          setError(err.message);
+                        }
+                      }}
+                    />
                   )}
                 </div>
               </div>

@@ -31,7 +31,7 @@ if not SECRET_KEY:
         raise Exception('No SECRET_KEY found in environment or secret_key.txt')
     
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
