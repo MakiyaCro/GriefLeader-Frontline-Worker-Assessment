@@ -205,66 +205,109 @@ def take_assessment(request, unique_link):
         return render(request, 'baseapp/assessment_closed.html')
     
     # Get all active question pairs
-    question_pairs = QuestionPair.objects.filter(active=True).order_by('order')
+    question_pairs = QuestionPair.objects.filter(
+        business=assessment.business,
+        active=True
+    ).order_by('order')
     
     if request.method == 'POST':
         form = AssessmentResponseForm(request.POST, question_pairs=question_pairs)
         if form.is_valid():
-            # Create the assessment response
-            assessment_response = AssessmentResponse.objects.create(
-                assessment=assessment
-            )
-            
-            # Save individual question responses
-            for pair in question_pairs:
-                field_name = f'question_{pair.id}'
-                if field_name in form.cleaned_data:
-                    chose_a = form.cleaned_data[field_name] == 'A'
-                    QuestionResponse.objects.create(
-                        assessment_response=assessment_response,
-                        question_pair=pair,
-                        chose_a=chose_a
-                    )
-                else:
-                    messages.error(request, 'Please answer all questions before submitting.')
-                    return render(request, 'baseapp/take_assessment.html', {
-                        'form': form,
-                        'assessment': assessment
-                    })
-            
-            # Mark assessment as completed
-            assessment.completed = True
-            assessment.completed_at = timezone.now()
-            assessment.save()
-            
             try:
-                # Generate PDF report
-                pdf_path = generate_assessment_report(assessment_response)
-                
-                # Send email with PDF attachment
-                email = EmailMessage(
-                    f'Assessment Report - {assessment.candidate_name}',
-                    f'Please find attached the assessment report for {assessment.candidate_name}.',
-                    settings.DEFAULT_FROM_EMAIL,
-                    [assessment.manager_email]
+                # Create the assessment response
+                assessment_response = AssessmentResponse.objects.create(
+                    assessment=assessment
                 )
                 
-                # Attach the PDF
-                with open(pdf_path, 'rb') as f:
-                    email.attach(
-                        f'assessment_report_{assessment.candidate_name}.pdf',
-                        f.read(),
-                        'application/pdf'
-                    )
-                email.send()
+                # Save individual question responses
+                for pair in question_pairs:
+                    field_name = f'question_{pair.id}'
+                    if field_name in form.cleaned_data:
+                        chose_a = form.cleaned_data[field_name] == 'A'
+                        QuestionResponse.objects.create(
+                            assessment_response=assessment_response,
+                            question_pair=pair,
+                            chose_a=chose_a
+                        )
+                    else:
+                        messages.error(request, 'Please answer all questions before submitting.')
+                        return render(request, 'baseapp/take_assessment.html', {
+                            'form': form,
+                            'assessment': assessment
+                        })
                 
-                # Clean up the PDF file after sending
-                os.remove(pdf_path)
+                # Mark assessment as completed
+                assessment.completed = True
+                assessment.completed_at = timezone.now()
+                assessment.save()
+                
+                try:
+                    # Generate PDF report
+                    pdf_path = generate_assessment_report(assessment_response)
+                    
+                    # Prepare email content
+                    subject = f'Assessment Report - {assessment.candidate_name} - {assessment.position}'
+                    message = f'''Dear {assessment.manager_name},
+
+The assessment for {assessment.candidate_name} for the position of {assessment.position} has been completed.
+
+Please find the assessment report attached to this email. 
+
+Assessment Details:
+- Candidate: {assessment.candidate_name}
+- Position: {assessment.position}
+- Region: {assessment.region}
+- Completion Date: {timezone.now().strftime("%Y-%m-%d %H:%M")}
+
+This is an automated message. Please do not reply to this email.
+
+Best regards,
+Assessment System'''
+
+                    # Create and send email with PDF attachment
+                    email = EmailMessage(
+                        subject=subject,
+                        body=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[assessment.manager_email],
+                        reply_to=[settings.DEFAULT_FROM_EMAIL]
+                    )
+                    
+                    # Attach the PDF with a clean filename
+                    clean_name = "".join(c for c in assessment.candidate_name if c.isalnum() or c in (' ', '-', '_')).strip()
+                    filename = f'Assessment_Report_{clean_name}_{timezone.now().strftime("%Y%m%d")}.pdf'
+                    
+                    with open(pdf_path, 'rb') as f:
+                        email.attach(filename, f.read(), 'application/pdf')
+                    
+                    # Send the email
+                    email.send(fail_silently=False)
+                    
+                    # Clean up the PDF file after sending
+                    if os.path.exists(pdf_path):
+                        os.remove(pdf_path)
+                    
+                except Exception as e:
+                    # Log the error with more details
+                    print(f"Failed to send assessment report email: {str(e)}")
+                    print(f"Assessment ID: {assessment.id}")
+                    print(f"Manager Email: {assessment.manager_email}")
+                    # Don't re-raise the exception - we still want to show the thank you page
+                    # but do log it for monitoring
+                
+                # Redirect to thank you page
+                return redirect('baseapp:thank_you')
                 
             except Exception as e:
-                print(f"Failed to send report email: {e}")
-            
-            return render(request, 'baseapp/thank_you.html')
+                print(f"Error processing assessment submission: {str(e)}")
+                messages.error(
+                    request,
+                    'There was an error processing your submission. Please try again.'
+                )
+                return render(request, 'baseapp/take_assessment.html', {
+                    'form': form,
+                    'assessment': assessment
+                })
     else:
         form = AssessmentResponseForm(question_pairs=question_pairs)
     
