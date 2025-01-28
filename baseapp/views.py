@@ -197,6 +197,8 @@ def password_reset_confirm(request, token):
 
 def take_assessment(request, unique_link):
     """View for candidates to take their assessment"""
+    import logging
+    logger = logging.getLogger(__name__)
     assessment = get_object_or_404(Assessment, unique_link=unique_link)
     
     # Check if assessment is already completed
@@ -242,8 +244,10 @@ def take_assessment(request, unique_link):
                 assessment.save()
                 
                 try:
+                    logger.info(f"Starting PDF generation for assessment ID: {assessment.id}")
                     # Generate PDF report
                     pdf_path = generate_assessment_report(assessment_response)
+                    logger.info(f"PDF generated successfully at {pdf_path}")
                     
                     # Prepare email content
                     subject = f'Assessment Report - {assessment.candidate_name} - {assessment.position}'
@@ -264,6 +268,7 @@ This is an automated message. Please do not reply to this email.
 Best regards,
 Assessment System'''
 
+                    logger.info(f"Preparing to send email for assessment ID: {assessment.id} to manager: {assessment.manager_email}")
                     # Create and send email with PDF attachment
                     email = EmailMessage(
                         subject=subject,
@@ -281,7 +286,9 @@ Assessment System'''
                         email.attach(filename, f.read(), 'application/pdf')
                     
                     # Send the email
+                    logger.info("Attempting to send email...")
                     email.send(fail_silently=False)
+                    logger.info(f"Email sent successfully to {assessment.manager_email}")
                     
                     # Clean up the PDF file after sending
                     if os.path.exists(pdf_path):
@@ -289,9 +296,22 @@ Assessment System'''
                     
                 except Exception as e:
                     # Log the error with more details
-                    print(f"Failed to send assessment report email: {str(e)}")
-                    print(f"Assessment ID: {assessment.id}")
-                    print(f"Manager Email: {assessment.manager_email}")
+                    logger.error(f"Failed to send assessment report email: {str(e)}")
+                    logger.error(f"Assessment ID: {assessment.id}")
+                    logger.error(f"Manager Email: {assessment.manager_email}")
+                    logger.error(f"Email settings: FROM_EMAIL={settings.DEFAULT_FROM_EMAIL}")
+                    
+                    # Log email configuration for debugging
+                    logger.debug(f"Email Backend: {settings.EMAIL_BACKEND}")
+                    logger.debug(f"Email Host: {settings.EMAIL_HOST}")
+                    logger.debug(f"Email Port: {settings.EMAIL_PORT}")
+                    logger.debug(f"Email Use TLS: {settings.EMAIL_USE_TLS}")
+                    
+                    # Check if PDF exists
+                    if 'pdf_path' in locals():
+                        logger.error(f"PDF path exists: {os.path.exists(pdf_path)}")
+                        if os.path.exists(pdf_path):
+                            logger.error(f"PDF size: {os.path.getsize(pdf_path)}")
                     # Don't re-raise the exception - we still want to show the thank you page
                     # but do log it for monitoring
                 
