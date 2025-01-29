@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Assessment Report</title>
+</head>
+<body>
+    <div class="report">
+        <h1 class="report-title"><strong>Candidate Fit to Benchmark Assessment</strong></h1>
+        
+        <div class="header-info">
+            <p class="info-line">
+                <strong>Candidate Name: {{ candidate_name }} Position: {{ position }}</strong>
+            </p>
+            
+            <p class="info-line">
+                <strong>Date Completed: {{ submitted_at }} Time To Complete: {{ completion_time }}</strong>
+            </p>
+            
+            <p class="info-line">
+                <strong>Hiring Manager: {{ manager_name }} Region: {{ region }}</strong>
+            </p>
+        </div>
+
+        <table class="scores-table">
+            <thead>
+                <tr>
+                    <th class="attribute-col"><strong>Attribute</strong></th>
+                    <th class="definition-col"><strong>Definition</strong></th>
+                    <th class="score-col"><strong>Candidate</strong></th>
+                    <th class="score-col"><strong>Benchmark</strong></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Integrity/Accountability</strong></td>
+                    <td><em>Takes responsibility for actions and is forthright, honest, and demonstrates ethical standards</em></td>
+                    <td class="score-col">{{ scores.integrity.candidate_score }}</td>
+                    <td class="score-col">{{ scores.integrity.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Safety</strong></td>
+                    <td><em>Adheres to, promotes, and prioritizes safety standards</em></td>
+                    <td class="score-col">{{ scores.safety.candidate_score }}</td>
+                    <td class="score-col">{{ scores.safety.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Work Ethic</strong></td>
+                    <td><em>Puts in the effort to deliver high-quality work</em></td>
+                    <td class="score-col">{{ scores.work_ethic.candidate_score }}</td>
+                    <td class="score-col">{{ scores.work_ethic.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Teamwork</strong></td>
+                    <td><em>Works well in teams, promotes teamwork, and prioritizes team goals above individual accomplishments</em></td>
+                    <td class="score-col">{{ scores.teamwork.candidate_score }}</td>
+                    <td class="score-col">{{ scores.teamwork.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Customer Service</strong></td>
+                    <td><em>Goes above and beyond to ensure customer needs are met or exceeded</em></td>
+                    <td class="score-col">{{ scores.customer_service.candidate_score }}</td>
+                    <td class="score-col">{{ scores.customer_service.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Goal Orientation</strong></td>
+                    <td><em>Motivated by setting and achieving challenging goals</em></td>
+                    <td class="score-col">{{ scores.goal_orientation.candidate_score }}</td>
+                    <td class="score-col">{{ scores.goal_orientation.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Learning Agility</strong></td>
+                    <td><em>Learns quickly in new situations and handles change well</em></td>
+                    <td class="score-col">{{ scores.learning_agility.candidate_score }}</td>
+                    <td class="score-col">{{ scores.learning_agility.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Conflict Resolution</strong></td>
+                    <td><em>Addresses conflicts directly and seeks fair and equitable resolution calmly and rationally</em></td>
+                    <td class="score-col">{{ scores.conflict_resolution.candidate_score }}</td>
+                    <td class="score-col">{{ scores.conflict_resolution.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Self-Awareness</strong></td>
+                    <td><em>Reflects on behaviors and actions and the impact on others to improve performance and relationships</em></td>
+                    <td class="score-col">{{ scores.self_awareness.candidate_score }}</td>
+                    <td class="score-col">{{ scores.self_awareness.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Emotional Stability/Moodiness</strong></td>
+                    <td><em>Calm and composed in stressful situations-may be resilient</em></td>
+                    <td class="score-col">{{ scores.emotional_stability.candidate_score }}</td>
+                    <td class="score-col">{{ scores.emotional_stability.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Ambition</strong></td>
+                    <td><em>Driven to achieve success, career advancement, and recognition-strives to exceed expectations</em></td>
+                    <td class="score-col">{{ scores.ambition.candidate_score }}</td>
+                    <td class="score-col">{{ scores.ambition.benchmark_score }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

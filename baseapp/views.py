@@ -17,6 +17,8 @@ import csv
 from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser
 from .forms import AssessmentCreationForm, AssessmentResponseForm, BenchmarkBatchForm, PasswordResetForm, SetNewPasswordForm
 from .utils.report_generator import generate_assessment_report
+from django.template.loader import render_to_string
+from weasyprint import HTML, CSS
 import os
 from io import StringIO
 
@@ -199,6 +201,7 @@ def take_assessment(request, unique_link):
     """View for candidates to take their assessment"""
     import logging
     logger = logging.getLogger(__name__)
+    
     assessment = get_object_or_404(Assessment, unique_link=unique_link)
     
     # Check if assessment is already completed
@@ -278,6 +281,13 @@ Assessment System'''
                         reply_to=[settings.DEFAULT_FROM_EMAIL]
                     )
                     
+                    # Verify PDF exists and has content
+                    if os.path.exists(pdf_path):
+                        logger.info(f"PDF exists at {pdf_path}, size: {os.path.getsize(pdf_path)} bytes")
+                    else:
+                        logger.error(f"PDF file not found at {pdf_path}")
+                        raise FileNotFoundError(f"Generated PDF not found at {pdf_path}")
+                    
                     # Attach the PDF with a clean filename
                     clean_name = "".join(c for c in assessment.candidate_name if c.isalnum() or c in (' ', '-', '_')).strip()
                     filename = f'Assessment_Report_{clean_name}_{timezone.now().strftime("%Y%m%d")}.pdf'
@@ -293,10 +303,21 @@ Assessment System'''
                     # Clean up the PDF file after sending
                     if os.path.exists(pdf_path):
                         os.remove(pdf_path)
+                        logger.info(f"Cleaned up PDF file at {pdf_path}")
                     
+                except ImportError as e:
+                    logger.error(f"WeasyPrint import error: {str(e)}")
+                    logger.error("Please check if WeasyPrint and its dependencies are installed correctly")
+                    messages.error(request, 'There was an error generating the assessment report. The system administrator has been notified.')
+                
+                except OSError as e:
+                    logger.error(f"OS error during PDF generation: {str(e)}")
+                    logger.error("This might be due to file permission issues or missing system dependencies")
+                    messages.error(request, 'There was an error processing the assessment report. The system administrator has been notified.')
+                
                 except Exception as e:
                     # Log the error with more details
-                    logger.error(f"Failed to send assessment report email: {str(e)}")
+                    logger.error(f"Failed to generate/send assessment report: {str(e)}")
                     logger.error(f"Assessment ID: {assessment.id}")
                     logger.error(f"Manager Email: {assessment.manager_email}")
                     logger.error(f"Email settings: FROM_EMAIL={settings.DEFAULT_FROM_EMAIL}")
@@ -307,19 +328,13 @@ Assessment System'''
                     logger.debug(f"Email Port: {settings.EMAIL_PORT}")
                     logger.debug(f"Email Use TLS: {settings.EMAIL_USE_TLS}")
                     
-                    # Check if PDF exists
-                    if 'pdf_path' in locals():
-                        logger.error(f"PDF path exists: {os.path.exists(pdf_path)}")
-                        if os.path.exists(pdf_path):
-                            logger.error(f"PDF size: {os.path.getsize(pdf_path)}")
-                    # Don't re-raise the exception - we still want to show the thank you page
-                    # but do log it for monitoring
+                    messages.error(request, 'There was an error sending the assessment report. The system administrator has been notified.')
                 
-                # Redirect to thank you page
+                # Redirect to thank you page regardless of email success
                 return redirect('baseapp:thank_you')
                 
             except Exception as e:
-                print(f"Error processing assessment submission: {str(e)}")
+                logger.error(f"Error processing assessment submission: {str(e)}")
                 messages.error(
                     request,
                     'There was an error processing your submission. Please try again.'
@@ -1148,30 +1163,39 @@ Best regards,
 @user_passes_test(is_admin)
 def admin_preview_assessment(request, assessment_id):
     """Admin view to preview assessment report PDF"""
-    assessment = get_object_or_404(Assessment, id=assessment_id)
-    if not assessment.completed:
-        raise Http404("Assessment not completed")
-        
-    response = get_object_or_404(AssessmentResponse, assessment=assessment)
-    
-    # Define the report path
-    reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
-    pdf_filename = f'assessment_report_{assessment.unique_link}.pdf'
-    pdf_path = os.path.join(reports_dir, pdf_filename)
-    
     try:
-        # Open and return the PDF file
-        pdf_file = open(pdf_path, 'rb')
-        response = FileResponse(pdf_file, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="{pdf_filename}"'
-        response['X-Frame-Options'] = 'SAMEORIGIN'
-        return response
+        # Get assessment and verify it exists
+        assessment = get_object_or_404(Assessment, id=assessment_id)
         
-    except FileNotFoundError:
-        # If PDF doesn't exist, generate it
+        if not assessment.completed:
+            print(f"Assessment not completed")
+            raise Http404("Assessment not completed")
+        
+        # Get assessment response
+        response = get_object_or_404(AssessmentResponse, assessment=assessment)
+        
+        # Get all attributes for this assessment
+        attributes = Attribute.objects.filter(
+            business=assessment.business,
+            active=True
+        ).order_by('order')
+        
+        for attr in attributes:
+            score = response.get_score_for_attribute(attr)
+        
+        # Define the report path
+        reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
+        pdf_filename = f'assessment_report_{assessment.unique_link}.pdf'
+        pdf_path = os.path.join(reports_dir, pdf_filename)
+        
         try:
-            from .utils.report_generator import generate_assessment_report
+            # Generate new PDF
             pdf_path = generate_assessment_report(response)
+            
+            if not os.path.exists(pdf_path):
+                raise FileNotFoundError(f"Generated PDF not found at {pdf_path}")
+            
+            # Return PDF response
             pdf_file = open(pdf_path, 'rb')
             response = FileResponse(pdf_file, content_type='application/pdf')
             response['Content-Disposition'] = f'inline; filename="{pdf_filename}"'
@@ -1180,8 +1204,12 @@ def admin_preview_assessment(request, assessment_id):
             
         except Exception as e:
             print(f"Error generating PDF: {str(e)}")
-            raise Http404("Error generating PDF report")
-
+            raise
+            
+    except Exception as e:
+        print(f"Error in preview: {str(e)}")
+        raise Http404(f"Error generating PDF report: {str(e)}")
+    
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
 def admin_download_assessment(request, assessment_id):

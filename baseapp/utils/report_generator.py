@@ -1,11 +1,14 @@
-from docx import Document
-from docx2pdf import convert
+from django.template.loader import render_to_string
+from weasyprint import HTML, CSS
 import os
-from datetime import datetime
 from django.conf import settings
-from django.db.models import Avg
-from baseapp.models import QuestionResponse, Attribute, AssessmentResponse
+from datetime import datetime
+import logging
+from ..models import Attribute, AssessmentResponse
+from pathlib import Path
+import sys
 
+# Add direct print statements for debugging
 def get_benchmark_score_for_attribute(business, attribute):
     """Calculate benchmark score for a specific attribute"""
     benchmark_responses = AssessmentResponse.objects.filter(
@@ -30,112 +33,110 @@ def get_benchmark_score_for_attribute(business, attribute):
 
 def generate_assessment_report(assessment_response):
     """
-    Generate assessment report using Word template and convert to PDF.
-    Handles placeholder replacement and score population in table.
+    Generate assessment report using HTML template and WeasyPrint.
     """
-    # Get template path from utility directory
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    template_path = os.path.join(current_dir, 'report_template.docx')
-    
-    if not os.path.exists(template_path):
-        raise FileNotFoundError(f"Report template not found at {template_path}")
-    
-    # Define paths for temporary and final files
-    reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
-    os.makedirs(reports_dir, exist_ok=True)
-    
-    temp_docx = os.path.join(reports_dir, f'temp_report_{assessment_response.assessment.unique_link}.docx')
-    temp_pdf = os.path.join(reports_dir, f'temp_assessment_report_{assessment_response.assessment.unique_link}.pdf')
-    final_pdf = os.path.join(reports_dir, f'assessment_report_{assessment_response.assessment.unique_link}.pdf')
-    
-    # Load the template
-    doc = Document(template_path)
-    
-    # Get assessment data
-    assessment = assessment_response.assessment
-    completion_time = assessment_response.submitted_at - assessment.created_at
-    
-    # Replace placeholders in paragraphs
-    placeholders = {
-        '[candidate_name]': assessment.candidate_name,
-        '[candidate_position]': assessment.position,
-        '[submitted_at]': assessment_response.submitted_at.strftime('%Y-%m-%d'),
-        '[completion_time]': str(completion_time).split('.')[0],  # Remove microseconds
-        '[manager_name]': assessment.manager_name,
-        '[region]': assessment.region
-    }
-    
-    for paragraph in doc.paragraphs:
-        for key, value in placeholders.items():
-            if key in paragraph.text:
-                for run in paragraph.runs:
-                    if key in run.text:
-                        run.text = run.text.replace(key, str(value))
-    
-    # Handle table scores
-    if len(doc.tables) > 0:
-        table = doc.tables[0]
+    try:
+        # Get assessment data
+        assessment = assessment_response.assessment
         
-        # Get all active attributes
+        completion_time = assessment_response.submitted_at - assessment.created_at
+        
+        # Get all attributes and print them
         attributes = Attribute.objects.filter(
             business=assessment.business,
             active=True
         ).order_by('order')
         
-        # Start from row 1 to skip header
-        for row in table.rows[1:]:
-            # Get attribute name from first column
-            attribute_name = row.cells[0].text.strip()
-            # Remove any formatting markers
-            attribute_name = ''.join(c for c in attribute_name if c not in ('*', '[', ']', '{', '}', '.', ' '))
+        # Initialize scores dictionary
+        scores = {
+            'integrity': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'safety': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'work_ethic': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'teamwork': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'customer_service': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'goal_orientation': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'learning_agility': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'conflict_resolution': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'self_awareness': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'emotional_stability': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+            'ambition': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
+        }
+        
+        # Calculate scores for each attribute
+        for attribute in attributes:
+            original_name = attribute.name
+            normalized_name = attribute.name.lower().replace('/', '_').replace(' ', '_').replace('-', '_')
             
-            try:
-                # Find the matching attribute (case-insensitive)
-                attr = next(
-                    (a for a in attributes if a.name.lower().replace(' ', '') == attribute_name.lower()),
-                    None
-                )
-                
-                if attr:
-                    # Calculate and format candidate score
-                    candidate_score = assessment_response.get_score_for_attribute(attr)
-                    
-                    # Get benchmark score
-                    benchmark_score = get_benchmark_score_for_attribute(assessment.business, attr)
-                    
-                    # Update the "Candidate" column (index 2)
-                    if len(row.cells) > 2:
-                        score_cell = row.cells[2]
-                        score_cell.text = f"{candidate_score:.1f}%" if candidate_score is not None else "N/A"
-                    
-                    # Update the "Benchmark" column (index 3)
-                    if len(row.cells) > 3:
-                        benchmark_cell = row.cells[3]
-                        benchmark_cell.text = f"{benchmark_score:.1f}%" if benchmark_score is not None else "N/A"
-                        
-            except Exception as e:
-                print(f"Error processing attribute {attribute_name}: {str(e)}")
-                continue
-    
-    # Save and convert the document
-    try:
-        # Save the Word document
-        doc.save(temp_docx)
-        
-        # Convert to PDF
-        convert(temp_docx, temp_pdf)
-        
-        # Move temporary PDF to final location
-        if os.path.exists(temp_pdf):
-            if os.path.exists(final_pdf):
-                os.remove(final_pdf)
-            os.rename(temp_pdf, final_pdf)
+            candidate_score = assessment_response.get_score_for_attribute(attribute)
+            benchmark_score = get_benchmark_score_for_attribute(assessment.business, attribute)
             
-        return final_pdf
+            # Try to find a matching score key
+            matched_key = None
+            for score_key in scores.keys():
+                if score_key in normalized_name or normalized_name in score_key:
+                    matched_key = score_key
+                    break
+            
+            if matched_key:
+                scores[matched_key] = {
+                    'candidate_score': f"{candidate_score:.1f}%" if candidate_score is not None else "N/A",
+                    'benchmark_score': f"{benchmark_score:.1f}%" if benchmark_score is not None else "N/A"
+                }
+            else:
+                print(f"WARNING: No match found for {original_name}")
+                print(f"Available keys: {list(scores.keys())}")
         
-    finally:
-        # Clean up temporary files
-        if os.path.exists(temp_docx):
-            os.remove(temp_docx)
-        if os.path.exists(temp_pdf):
-            os.remove(temp_pdf)
+        # Prepare context
+        context = {
+            'candidate_name': assessment.candidate_name,
+            'position': assessment.position,
+            'submitted_at': assessment_response.submitted_at.strftime('%Y-%m-%d'),
+            'completion_time': str(completion_time).split('.')[0],
+            'manager_name': assessment.manager_name,
+            'region': assessment.region,
+            'scores': scores,
+        }
+        
+        # Setup output paths
+        reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
+        os.makedirs(reports_dir, exist_ok=True)
+        output_path = os.path.join(reports_dir, f'assessment_report_{assessment.unique_link}.pdf')
+        
+        # Get CSS
+        css_path = os.path.join(settings.STATIC_ROOT, 'css', 'assessment_report.css')
+        if not os.path.exists(css_path):
+            css_path = os.path.join(settings.BASE_DIR, 'baseapp', 'static', 'css', 'assessment_report.css')
+        
+        with open(css_path, 'r', encoding='utf-8') as css_file:
+            css_string = css_file.read()
+        
+        # Create temporary HTML file
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp_html:
+            # Render template
+            html_string = render_to_string('baseapp/assessment_report.html', context)
+            tmp_html.write(html_string)
+            tmp_html_path = tmp_html.name
+        
+        try:
+            # Generate PDF
+            html = HTML(filename=tmp_html_path, base_url=str(settings.BASE_DIR))
+            css = CSS(string=css_string)
+            
+            html.write_pdf(
+                output_path,
+                stylesheets=[css]
+            )
+            
+            return output_path
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(tmp_html_path):
+                os.unlink(tmp_html_path)
+        
+    except Exception as e:
+        print(f"\nERROR in generate_assessment_report: {str(e)}")
+        print(f"Python version: {sys.version}")
+        print(f"Current working directory: {os.getcwd()}")
+        raise

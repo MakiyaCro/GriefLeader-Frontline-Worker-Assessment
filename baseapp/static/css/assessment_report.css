@@ -1,0 +1,104 @@
+@page {
+    size: letter portrait;
+    margin: 2.5cm 2cm;
+}
+
+body {
+    font-family: Calibri, Arial, sans-serif;
+    line-height: 1.15;
+    font-size: 11pt;
+    color: #000000;
+    margin: 0;
+    padding: 0;
+}
+
+.report {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.report-title {
+    text-align: center;
+    font-size: 12pt;
+    margin-bottom: 20px;
+    font-weight: normal;
+}
+
+.header-info {
+    margin-bottom: 20px;
+}
+
+.info-line {
+    margin: 0 0 10px 0;
+    line-height: 1.15;
+}
+
+.scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #000000;
+    margin-top: 20px;
+}
+
+.scores-table th,
+.scores-table td {
+    border: 1px solid #000000;
+    padding: 6px 8px;
+    vertical-align: top;
+    text-align: left;
+    font-size: 11pt;
+}
+
+.scores-table th {
+    background-color: #ffffff;
+}
+
+/* Column widths to match Word template */
+.scores-table th:nth-child(1),
+.scores-table td:nth-child(1) {
+    width: 20%;
+}
+
+.scores-table th:nth-child(2),
+.scores-table td:nth-child(2) {
+    width: 45%;
+}
+
+.scores-table th:nth-child(3),
+.scores-table td:nth-child(3),
+.scores-table th:nth-child(4),
+.scores-table td:nth-child(4) {
+    width: 17.5%;
+}
+
+/* Score columns alignment */
+.score-col {
+    text-align: center;
+}
+
+/* Specific text styles */
+em {
+    font-style: italic;
+    color: #000000;
+}
+
+strong {
+    font-weight: bold;
+    color: #000000;
+}
+
+/* Ensure consistent line height in table cells */
+.scores-table td {
+    line-height: 1.2;
+}
+
+/* Add spacing between rows */
+.scores-table tr {
+    page-break-inside: avoid;
+}
+
+/* Ensure table headers repeat on new pages */
+.scores-table thead {
+    display: table-header-group;
+}
