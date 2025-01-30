@@ -1273,6 +1273,7 @@ def admin_resend_assessment(request, assessment_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
  
+
 #hr views
 @login_required
 @user_passes_test(is_hr_user)

@@ -1,12 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Copy, Mail, X, Download } from 'lucide-react';
+import { FileText, Copy, Mail, X, Download, Pencil, Trash2 } from 'lucide-react';
 
 const AssessmentSection = ({ businessDetails }) => {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    dateRange: {
+      start: '',
+      end: ''
+    },
+    status: 'all'
+  });
+  const [activeFilters, setActiveFilters] = useState({
+    date: false,
+    status: false
+  });
   const [newAssessment, setNewAssessment] = useState({
+    candidate_name: '',
+    candidate_email: '',
+    position: '',
+    region: '',
+    manager_name: '',
+    manager_email: ''
+  });
+  const [editAssessment, setEditAssessment] = useState({
     candidate_name: '',
     candidate_email: '',
     position: '',
@@ -79,6 +101,49 @@ const AssessmentSection = ({ businessDetails }) => {
     }
   };
 
+  const handleEditAssessment = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`/api/assessments/${selectedAssessment.id}/`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify(editAssessment)
+      });
+
+      if (!response.ok) throw new Error('Failed to update assessment');
+
+      await fetchAssessments();
+      setShowEditModal(false);
+      setSelectedAssessment(null);
+      alert('Assessment updated successfully!');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteAssessment = async () => {
+    try {
+      const response = await fetch(`/api/assessments/${selectedAssessment.id}/`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRFToken': getCsrfToken(),
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete assessment');
+
+      await fetchAssessments();
+      setShowDeleteModal(false);
+      setSelectedAssessment(null);
+      alert('Assessment deleted successfully!');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -87,8 +152,37 @@ const AssessmentSection = ({ businessDetails }) => {
     });
   };
 
+  const getFilteredAssessments = () => {
+    return assessments.filter(assessment => {
+      // Date filter
+      if (activeFilters.date && filters.dateRange.start && filters.dateRange.end) {
+        const assessmentDate = new Date(assessment.created_at);
+        const startDate = new Date(filters.dateRange.start);
+        const endDate = new Date(filters.dateRange.end);
+        endDate.setHours(23, 59, 59);
+        
+        if (assessmentDate < startDate || assessmentDate > endDate) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (activeFilters.status && filters.status !== 'all') {
+        if (filters.status === 'completed' && !assessment.completed) {
+          return false;
+        }
+        if (filters.status === 'pending' && assessment.completed) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
   return (
     <div className="bg-gray-50 p-6 rounded-lg mt-8">
+      {/* Header section */}
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xl font-semibold">Assessments</h3>
         <button
@@ -99,11 +193,128 @@ const AssessmentSection = ({ businessDetails }) => {
         </button>
       </div>
 
+      {/* Filters Section */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="text-blue-600 hover:text-blue-800 flex items-center"
+          >
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
+          </button>
+          {showFilters && (
+            <button
+              onClick={() => {
+                setFilters({
+                  dateRange: { start: '', end: '' },
+                  status: 'all'
+                });
+                setActiveFilters({ date: false, status: false });
+              }}
+              className="text-sm text-gray-600 hover:text-gray-800"
+            >
+              Clear All Filters
+            </button>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="bg-white p-4 rounded-lg shadow-sm space-y-4">
+            <div className="flex items-start space-x-6">
+              {/* Date Filter */}
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={activeFilters.date}
+                    onChange={(e) => setActiveFilters({
+                      ...activeFilters,
+                      date: e.target.checked
+                    })}
+                    className="rounded border-gray-300"
+                  />
+                  <label className="text-sm font-medium text-gray-700">
+                    Filter by Date
+                  </label>
+                </div>
+                <div className="flex space-x-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={filters.dateRange.start}
+                      onChange={(e) => setFilters({
+                        ...filters,
+                        dateRange: {
+                          ...filters.dateRange,
+                          start: e.target.value
+                        }
+                      })}
+                      disabled={!activeFilters.date}
+                      className="p-2 border rounded text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={filters.dateRange.end}
+                      onChange={(e) => setFilters({
+                        ...filters,
+                        dateRange: {
+                          ...filters.dateRange,
+                          end: e.target.value
+                        }
+                      })}
+                      disabled={!activeFilters.date}
+                      className="p-2 border rounded text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={activeFilters.status}
+                    onChange={(e) => setActiveFilters({
+                      ...activeFilters,
+                      status: e.target.checked
+                    })}
+                    className="rounded border-gray-300"
+                  />
+                  <label className="text-sm font-medium text-gray-700">
+                    Filter by Status
+                  </label>
+                </div>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    status: e.target.value
+                  })}
+                  disabled={!activeFilters.status}
+                  className="w-full p-2 border rounded text-sm"
+                >
+                  <option value="all">All Status</option>
+                  <option value="completed">Completed</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Loading state */}
       {loading ? (
         <div className="text-center py-8">
           <div className="w-8 h-8 animate-spin mx-auto border-4 border-blue-500 border-t-transparent rounded-full" />
         </div>
-      ) : assessments.length > 0 ? (
+      ) : getFilteredAssessments().length > 0 ? (
+        // Assessment table
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -116,7 +327,7 @@ const AssessmentSection = ({ businessDetails }) => {
               </tr>
             </thead>
             <tbody>
-              {assessments.map((assessment) => (
+              {getFilteredAssessments().map((assessment) => (
                 <tr key={assessment.id} className="border-t">
                   <td className="px-4 py-2">{assessment.candidate_name}</td>
                   <td className="px-4 py-2">{assessment.position}</td>
@@ -132,7 +343,7 @@ const AssessmentSection = ({ businessDetails }) => {
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end space-x-2">
-                      {assessment.completed && (
+                      {assessment.completed ? (
                         <button
                           onClick={() => {
                             setSelectedAssessment(assessment);
@@ -143,15 +354,44 @@ const AssessmentSection = ({ businessDetails }) => {
                           <FileText className="w-4 h-4 mr-1" />
                           View Results
                         </button>
-                      )}
-                      {!assessment.completed && (
-                        <button
-                          onClick={() => copyAssessmentLink(assessment.unique_link)}
-                          className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200"
-                        >
-                          <Copy className="w-4 h-4 mr-1" />
-                          Copy Link
-                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => copyAssessmentLink(assessment.unique_link)}
+                            className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200"
+                          >
+                            <Copy className="w-4 h-4 mr-1" />
+                            Copy Link
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedAssessment(assessment);
+                              setEditAssessment({
+                                candidate_name: assessment.candidate_name,
+                                candidate_email: assessment.candidate_email,
+                                position: assessment.position,
+                                region: assessment.region,
+                                manager_name: assessment.manager_name,
+                                manager_email: assessment.manager_email
+                              });
+                              setShowEditModal(true);
+                            }}
+                            className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200"
+                          >
+                            <Pencil className="w-4 h-4 mr-1" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedAssessment(assessment);
+                              setShowDeleteModal(true);
+                            }}
+                            className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-red-600 bg-red-100 hover:bg-red-200"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => {
@@ -172,10 +412,172 @@ const AssessmentSection = ({ businessDetails }) => {
         </div>
       ) : (
         <div className="text-center text-gray-500 py-8">
-          No assessments found
+          {assessments.length > 0 
+            ? 'No assessments match the selected filters'
+            : 'No assessments found'}
         </div>
       )}
 
+      {/* Edit Modal */}
+      {showEditModal && selectedAssessment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Edit Assessment</h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedAssessment(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleEditAssessment} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Candidate Name
+                </label>
+                <input
+                  type="text"
+                  value={editAssessment.candidate_name}
+                  onChange={(e) => setEditAssessment({
+                    ...editAssessment,
+                    candidate_name: e.target.value
+                  })}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Candidate Email
+                </label>
+                <input
+                  type="email"
+                  value={editAssessment.candidate_email}
+                  onChange={(e) => setEditAssessment({
+                    ...editAssessment,
+                    candidate_email: e.target.value
+                  })}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Position
+                </label>
+                <input
+                  type="text"
+                  value={editAssessment.position}
+                  onChange={(e) => setEditAssessment({
+                    ...editAssessment,
+                    position: e.target.value
+                  })}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Region
+                </label>
+                <input
+                  type="text"
+                  value={editAssessment.region}
+                  onChange={(e) => setEditAssessment({
+                    ...editAssessment,
+                    region: e.target.value
+                  })}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Manager Name
+                </label>
+                <input
+                  type="text"
+                  value={editAssessment.manager_name}
+                  onChange={(e) => setEditAssessment({
+                    ...editAssessment,
+                    manager_name: e.target.value
+                  })}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Manager Email
+                </label>
+                <input
+                  type="email"
+                  value={editAssessment.manager_email}
+                  onChange={(e) => setEditAssessment({
+                    ...editAssessment,
+                    manager_email: e.target.value
+                  })}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div className="flex justify-end space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedAssessment(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedAssessment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete the assessment for {selectedAssessment.candidate_name}? 
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedAssessment(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAssessment}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Delete Assessment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Report Preview Modal */}
       {showReportModal && selectedAssessment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
