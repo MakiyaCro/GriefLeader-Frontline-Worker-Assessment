@@ -40,3 +40,8 @@ node_modules/
 baseapp/migrations/
 media/assessment_reports/
 data.json
+
+.env
+*.env
+
+secret_key.txt
