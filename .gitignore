@@ -39,7 +39,6 @@ staticfiles/
 node_modules/
 
 media/assessment_reports/
-data.json
 
 .env
 *.env
