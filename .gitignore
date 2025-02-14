@@ -45,3 +45,8 @@ data.json
 *.env
 
 secret_key.txt
+db_backup.json
+reset_db.py
+
+*.sqlite3
+db.sqlite3
