@@ -89,23 +89,25 @@ WSGI_APPLICATION = 'FrontLWAA.wsgi.application'
 
 database_url = os.environ.get('JAWSDB_URL')
 
-# Database
 if database_url:
-    # Parse the URL
+    # Production settings (Heroku with MySQL)
     db_info = urlparse(database_url)
     
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
-            'NAME': db_info.path[1:],  # Remove leading slash
+            'NAME': db_info.path[1:],
             'USER': db_info.username,
             'PASSWORD': db_info.password,
             'HOST': db_info.hostname,
             'PORT': db_info.port or '3306',
+            'OPTIONS': {
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            }
         }
     }
 else:
-    # Local development settings
+    # Local development settings (SQLite)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
