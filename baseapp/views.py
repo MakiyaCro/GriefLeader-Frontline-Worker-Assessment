@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.core.mail import EmailMessage, send_mail, send_mass_mail
+from django.core.mail import EmailMessage, send_mail, send_mass_mail, EmailMultiAlternatives
 from django.conf import settings
 from django.contrib import messages
 from django.utils.crypto import get_random_string
@@ -957,29 +957,51 @@ def send_benchmark_email(request, business_id):
             reverse('baseapp:take_assessment', args=[assessment.unique_link])
         )
         
-        # Send email
+        # Prepare email content
         subject = f'Benchmark Assessment for {assessment.business.name}'
-        message = f"""
-        Hello,
         
-        You have been selected to participate in a benchmark assessment for {assessment.business.name}.
+        # Plain text version
+        text_message = f"""
+Hello,
+
+You have been selected to participate in a benchmark assessment for {assessment.business.name}.
+
+Please click the following link to complete your assessment:
+{assessment_url}
+
+This is a new link for your assessment. Any previous links sent will no longer work.
+
+Best regards,
+{assessment.manager_name}
+"""
         
-        Please click the following link to complete your assessment:
-        {assessment_url}
+        # HTML version
+        html_message = f"""
+<html>
+<body>
+    <p>Hello,</p>
+    
+    <p>You have been selected to participate in a benchmark assessment for {assessment.business.name}.</p>
+    
+    <p>Please <a href="{assessment_url}">click here</a> to complete your assessment.</p>
+    
+    <p>This is a new link for your assessment. Any previous links sent will no longer work.</p>
+    
+    <p>Best regards,<br>
+    {assessment.manager_name}</p>
+</body>
+</html>
+"""
         
-        This is a new link for your assessment. Any previous links sent will no longer work.
-        
-        Best regards,
-        {assessment.manager_name}
-        """
-        
-        send_mail(
+        # Create email message with both text and HTML versions
+        email_message = EmailMultiAlternatives(
             subject=subject,
-            message=message,
+            body=text_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
+            to=[email]
         )
+        email_message.attach_alternative(html_message, "text/html")
+        email_message.send(fail_silently=False)
         
         return JsonResponse({
             'message': f'Successfully sent benchmark assessment email to {email}'
