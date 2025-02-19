@@ -1019,7 +1019,7 @@ Please click the following link to complete your assessment:
 This is a new link for your assessment. Any previous links sent will no longer work.
 
 Best regards,
-{assessment.manager_name}
+Work Force Compass Admin
         """
         
         send_mail(
