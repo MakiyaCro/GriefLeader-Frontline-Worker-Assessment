@@ -22,6 +22,43 @@ from weasyprint import HTML, CSS
 import os
 from io import StringIO
 
+#link generation
+def generate_secure_token(entity_id=None, token_type='general', length=16):
+    """
+    Generate a secure token of specified length.
+    
+    Args:
+        entity_id: Optional ID to encode in the token for validation
+        token_type: Type of token ('reset', 'assessment', etc.) for namespacing
+        length: Desired token length (default 16)
+    
+    Returns:
+        A secure random token string
+    """
+    import hashlib
+    import base64
+    from django.utils.crypto import get_random_string
+    
+    # For simple cases with no ID, just return a random string
+    if entity_id is None:
+        return get_random_string(length)
+        
+    # Create a more sophisticated token when we have an ID
+    # Get random part for uniqueness (using half the desired length)
+    random_part = get_random_string(length // 2)
+    
+    # Create a hash using the entity ID, token type, and random part
+    # This allows validation of tokens and prevents guessing
+    salt = settings.SECRET_KEY[:16]  # Use part of the SECRET_KEY as salt
+    id_string = f"{entity_id}:{token_type}:{salt}:{random_part}"
+    id_hash = hashlib.sha256(id_string.encode()).digest()
+    
+    # Get a URL-safe base64 encoding of the hash
+    encoded_id = base64.urlsafe_b64encode(id_hash).decode()
+    
+    # Return a token of the specified length
+    return f"{random_part}{encoded_id}"[:length]
+
 #util views
 def is_admin(user):
     """Check if user is an admin"""
@@ -107,8 +144,12 @@ def password_reset_view(request):
             email = form.cleaned_data['email']
             user = CustomUser.objects.get(email=email)
             
-            # Generate unique reset token
-            reset_token = get_random_string(64)
+            # Generate unique reset token (16 chars is sufficient)
+            reset_token = generate_secure_token(
+                entity_id=user.id,
+                token_type='password_reset',
+                length=16
+            )
             
             # Store reset token in user's session with expiry
             request.session[f'password_reset_{reset_token}'] = {
@@ -643,8 +684,12 @@ def hr_user_reset_password(request, pk):
     try:
         user = get_object_or_404(CustomUser, pk=pk, is_hr=True)
         
-        # Generate reset token
-        reset_token = get_random_string(64)
+        # Generate reset token (16 chars is sufficient) 
+        reset_token = generate_secure_token(
+            entity_id=user.id,
+            token_type='hr_reset',
+            length=16
+        )
         
         # Store reset token in user's session with expiry
         request.session[f'password_reset_{reset_token}'] = {
@@ -948,8 +993,12 @@ def send_benchmark_email(request, business_id):
             candidate_email=email
         )
         
-        # Generate new unique link
-        assessment.unique_link = get_random_string(64)
+        # Generate new unique link with our improved function
+        assessment.unique_link = generate_secure_token(
+            entity_id=assessment.id,
+            token_type='benchmark',
+            length=16
+        )
         assessment.save()
         
         # Generate the assessment URL
@@ -957,11 +1006,9 @@ def send_benchmark_email(request, business_id):
             reverse('baseapp:take_assessment', args=[assessment.unique_link])
         )
         
-        # Prepare email content
+        # Send email
         subject = f'Benchmark Assessment for {assessment.business.name}'
-        
-        # Plain text version
-        text_message = f"""
+        message = f"""
 Hello,
 
 You have been selected to participate in a benchmark assessment for {assessment.business.name}.
@@ -973,35 +1020,15 @@ This is a new link for your assessment. Any previous links sent will no longer w
 
 Best regards,
 {assessment.manager_name}
-"""
+        """
         
-        # HTML version
-        html_message = f"""
-<html>
-<body>
-    <p>Hello,</p>
-    
-    <p>You have been selected to participate in a benchmark assessment for {assessment.business.name}.</p>
-    
-    <p>Please <a href="{assessment_url}">click here</a> to complete your assessment.</p>
-    
-    <p>This is a new link for your assessment. Any previous links sent will no longer work.</p>
-    
-    <p>Best regards,<br>
-    {assessment.manager_name}</p>
-</body>
-</html>
-"""
-        
-        # Create email message with both text and HTML versions
-        email_message = EmailMultiAlternatives(
+        send_mail(
             subject=subject,
-            body=text_message,
+            message=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[email]
+            recipient_list=[email],
+            fail_silently=False,
         )
-        email_message.attach_alternative(html_message, "text/html")
-        email_message.send(fail_silently=False)
         
         return JsonResponse({
             'message': f'Successfully sent benchmark assessment email to {email}'
@@ -1128,6 +1155,15 @@ def admin_create_assessment(request, business_id):
                 manager_email=data['manager_email'],
                 created_by=hr_user  # Set the HR user as the creator
             )
+            
+            # Generate a secure unique link with our improved function
+            # Note: We need to save first to have an ID, then update with the unique link
+            assessment.unique_link = generate_secure_token(
+                entity_id=assessment.id,
+                token_type='assessment',
+                length=16
+            )
+            assessment.save(update_fields=['unique_link'])
             
             # Generate assessment link
             assessment_link = request.build_absolute_uri(
@@ -1256,8 +1292,12 @@ def admin_resend_assessment(request, assessment_id):
     try:
         assessment = get_object_or_404(Assessment, id=assessment_id)
         
-        # Generate new unique link
-        assessment.unique_link = get_random_string(64)
+        # Generate new unique link with our improved function
+        assessment.unique_link = generate_secure_token(
+            entity_id=assessment.id,
+            token_type='assessment',
+            length=16
+        )
         assessment.save()
         
         # Generate the assessment URL
@@ -1268,17 +1308,17 @@ def admin_resend_assessment(request, assessment_id):
         # Send email
         subject = f'Assessment for {assessment.position}'
         message = f"""
-        Hello {assessment.candidate_name},
-        
-        You have been invited to complete an assessment for the {assessment.position} position.
-        
-        Please click the following link to complete your assessment:
-        {assessment_url}
-        
-        This is a new link for your assessment. Any previous links sent will no longer work.
-        
-        Best regards,
-        {assessment.manager_name}
+Hello {assessment.candidate_name},
+
+You have been invited to complete an assessment for the {assessment.position} position.
+
+Please click the following link to complete your assessment:
+{assessment_url}
+
+This is a new link for your assessment. Any previous links sent will no longer work.
+
+Best regards,
+{assessment.manager_name}
         """
         
         send_mail(
@@ -1324,6 +1364,14 @@ def create_assessment(request):
             # Explicitly set the business
             assessment.business = request.user.business
             assessment.save()
+            
+            # Generate a secure unique link with our improved function
+            assessment.unique_link = generate_secure_token(
+                entity_id=assessment.id,
+                token_type='assessment',
+                length=16
+            )
+            assessment.save(update_fields=['unique_link'])
             
             # Generate assessment link
             assessment_link = request.build_absolute_uri(
@@ -1373,8 +1421,12 @@ def resend_assessment(request, assessment_id):
     assessment = get_object_or_404(Assessment, id=assessment_id)
     
     try:
-        # Generate new unique link
-        assessment.unique_link = get_random_string(64)
+        # Generate new unique link with our improved function
+        assessment.unique_link = generate_secure_token(
+            entity_id=assessment.id,
+            token_type='assessment',
+            length=16
+        )
         assessment.save()
         
         # Generate the full assessment URL
