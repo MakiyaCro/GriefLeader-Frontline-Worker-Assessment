@@ -1,7 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
-from .models import Assessment, AssessmentResponse, QuestionResponse, Business, BenchmarkBatch, Attribute, QuestionPair, CustomUser
+from .models import Assessment, AssessmentResponse, QuestionResponse, Business, BenchmarkBatch, Attribute, QuestionPair, CustomUser, Manager
 
 class BusinessForm(forms.ModelForm):
     """Form for creating and editing businesses"""
@@ -18,7 +18,25 @@ class BusinessForm(forms.ModelForm):
         }
 
 class AssessmentCreationForm(forms.ModelForm):
-    """Form for HR users to create new assessments"""
+    """Form for HR users to create new assessments with multiple manager selection"""
+    
+    # Add a multiple-select field for managers
+    selected_managers = forms.ModelMultipleChoiceField(
+        queryset=Manager.objects.none(),
+        required=True,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'manager-checkbox-list'}),
+        label="Select Managers to Notify"
+    )
+    
+    # Add a field to select the primary manager
+    primary_manager = forms.ModelChoiceField(
+        queryset=Manager.objects.none(),
+        required=True,
+        empty_label="Select Primary Manager",
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label="Primary Contact for Communication"
+    )
+    
     class Meta:
         model = Assessment
         fields = [
@@ -26,16 +44,14 @@ class AssessmentCreationForm(forms.ModelForm):
             'candidate_email', 
             'position',
             'region', 
-            'manager_name', 
-            'manager_email'
+            'selected_managers',
+            'primary_manager',
         ]
         widgets = {
             'candidate_name': forms.TextInput(attrs={'class': 'form-control'}),
             'candidate_email': forms.EmailInput(attrs={'class': 'form-control'}),
             'position': forms.TextInput(attrs={'class': 'form-control'}),
             'region': forms.TextInput(attrs={'class': 'form-control'}),
-            'manager_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'manager_email': forms.EmailInput(attrs={'class': 'form-control'})
         }
 
     def __init__(self, *args, **kwargs):
@@ -43,6 +59,35 @@ class AssessmentCreationForm(forms.ModelForm):
         business = kwargs.pop('business', None)
         super().__init__(*args, **kwargs)
         self.business = business
+        
+        if business:
+            # Get available managers
+            managers = Manager.objects.filter(business=business, active=True)
+            
+            # Set the queryset for both manager fields
+            self.fields['selected_managers'].queryset = managers
+            self.fields['primary_manager'].queryset = managers
+            
+            # Add help text
+            self.fields['selected_managers'].help_text = "These managers will be notified when the assessment is completed"
+            self.fields['primary_manager'].help_text = "This manager's name will appear as the sender on emails"
+        
+    def clean(self):
+        cleaned_data = super().clean()
+        selected_managers = cleaned_data.get('selected_managers')
+        primary_manager = cleaned_data.get('primary_manager')
+        
+        # Ensure primary manager is in selected managers
+        if primary_manager and selected_managers and primary_manager not in selected_managers:
+            # Auto-add primary manager to selected managers
+            cleaned_data['selected_managers'] = list(selected_managers) + [primary_manager]
+        
+        # Even though these fields aren't in the form, we need to set them for the model
+        if primary_manager:
+            cleaned_data['manager_name'] = primary_manager.name
+            cleaned_data['manager_email'] = primary_manager.email
+        
+        return cleaned_data
 
     def clean_candidate_email(self):
         email = self.cleaned_data['candidate_email']
@@ -54,6 +99,29 @@ class AssessmentCreationForm(forms.ModelForm):
         ).exists():
             raise ValidationError('This candidate already has an active assessment in your organization.')
         return email
+        
+    def save(self, commit=True):
+        # Get manager details from primary_manager before saving
+        if self.cleaned_data.get('primary_manager'):
+            self.instance.manager_name = self.cleaned_data['primary_manager'].name
+            self.instance.manager_email = self.cleaned_data['primary_manager'].email
+            
+        assessment = super().save(commit=commit)
+        
+        if commit and self.cleaned_data.get('selected_managers'):
+            # Add the selected managers to the assessment
+            assessment.managers.set(self.cleaned_data['selected_managers'])
+            
+        return assessment
+        
+    def save(self, commit=True):
+        assessment = super().save(commit=commit)
+        
+        if commit and self.cleaned_data.get('selected_managers'):
+            # Add the selected managers to the assessment
+            assessment.managers.set(self.cleaned_data['selected_managers'])
+            
+        return assessment
 
 class BenchmarkBatchForm(forms.ModelForm):
     """Form for creating benchmark assessment batches"""

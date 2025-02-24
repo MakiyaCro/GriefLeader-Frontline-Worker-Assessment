@@ -1,0 +1,61 @@
+/* Add these styles to your CSS */
+
+.manager-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  background-color: white;
+}
+
+.manager-checkbox-list label {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s;
+}
+
+.manager-checkbox-list label:hover {
+  background-color: #f3f4f6;
+}
+
+.manager-checkbox-list input[type="checkbox"] {
+  margin-right: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.manager-checkbox-list .manager-details {
+  flex: 1;
+}
+
+.manager-checkbox-list .manager-name {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.manager-checkbox-list .primary-badge {
+  font-size: 0.65rem;
+  padding: 0.125rem 0.375rem;
+  background-color: #dbeafe;
+  color: #1e40af;
+  border-radius: 9999px;
+  margin-left: 0.5rem;
+}
+
+.manager-checkbox-list .manager-email {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.125rem;
+}
+
+.manager-help-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}

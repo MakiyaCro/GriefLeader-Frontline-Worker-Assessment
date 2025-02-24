@@ -6,6 +6,7 @@ app_name = 'baseapp'
 # Group URLs by function for better organization
 urlpatterns = [
     #util urls
+    
 
     #base views
     path('', views.home, name='home'),
@@ -51,6 +52,13 @@ urlpatterns = [
     path('api/admin/assessments/<int:assessment_id>/preview/', views.admin_preview_assessment, name='admin-preview-assessment'),
     path('api/admin/assessments/<int:assessment_id>/download/', views.admin_download_assessment, name='admin-download-assessment'),
     path('api/admin/assessments/<int:assessment_id>/resend/', views.admin_resend_assessment, name='admin-resend-assessment'),
+    path('api/assessments/<int:assessment_id>/', views.handle_assessment, name='handle-assessment'),
+    path('api/assessments/<int:assessment_id>/managers/', views.assessment_managers, name='assessment-managers'),
+
+
+    #--admin manager
+    path('api/businesses/<int:business_id>/managers/', views.manage_managers, name='manage_managers'),
+    path('api/managers/<int:manager_id>/', views.manage_manager, name='manage_manager'),
 
     #hr
     path('dashboard/', views.dashboard, name='dashboard'),

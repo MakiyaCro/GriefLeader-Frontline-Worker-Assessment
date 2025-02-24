@@ -14,7 +14,7 @@ from datetime import datetime
 import pandas as pd
 import json
 import csv
-from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser
+from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser, Manager
 from .forms import AssessmentCreationForm, AssessmentResponseForm, BenchmarkBatchForm, PasswordResetForm, SetNewPasswordForm
 from .utils.report_generator import generate_assessment_report
 from django.template.loader import render_to_string
@@ -293,9 +293,22 @@ def take_assessment(request, unique_link):
                     pdf_path = generate_assessment_report(assessment_response)
                     logger.info(f"PDF generated successfully at {pdf_path}")
                     
+                    # Get recipient list - include all associated managers plus the fallback email
+                    recipient_emails = []
+                    
+                    # Add all associated managers
+                    if assessment.managers.exists():
+                        recipient_emails.extend(assessment.managers.filter(active=True).values_list('email', flat=True))
+                        logger.info(f"Found {assessment.managers.count()} associated managers")
+                    
+                    # If no associated managers, fall back to the specified manager email
+                    if not recipient_emails:
+                        recipient_emails = [assessment.manager_email]
+                        logger.info(f"No managers associated, using fallback email: {assessment.manager_email}")
+                    
                     # Prepare email content
                     subject = f'Assessment Report - {assessment.candidate_name} - {assessment.position}'
-                    message = f'''Dear {assessment.manager_name},
+                    message = f'''Dear Manager,
 
 The assessment for {assessment.candidate_name} for the position of {assessment.position} has been completed.
 
@@ -310,17 +323,9 @@ Assessment Details:
 This is an automated message. Please do not reply to this email.
 
 Best regards,
-Assessment System'''
+{assessment.manager_name}'''
 
-                    logger.info(f"Preparing to send email for assessment ID: {assessment.id} to manager: {assessment.manager_email}")
-                    # Create and send email with PDF attachment
-                    email = EmailMessage(
-                        subject=subject,
-                        body=message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[assessment.manager_email],
-                        reply_to=[settings.DEFAULT_FROM_EMAIL]
-                    )
+                    logger.info(f"Preparing to send email for assessment ID: {assessment.id} to {len(recipient_emails)} recipients")
                     
                     # Verify PDF exists and has content
                     if os.path.exists(pdf_path):
@@ -333,13 +338,22 @@ Assessment System'''
                     clean_name = "".join(c for c in assessment.candidate_name if c.isalnum() or c in (' ', '-', '_')).strip()
                     filename = f'Assessment_Report_{clean_name}_{timezone.now().strftime("%Y%m%d")}.pdf'
                     
+                    # Create and send email with PDF attachment
+                    email = EmailMessage(
+                        subject=subject,
+                        body=message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=recipient_emails,
+                        reply_to=[settings.DEFAULT_FROM_EMAIL]
+                    )
+                    
                     with open(pdf_path, 'rb') as f:
                         email.attach(filename, f.read(), 'application/pdf')
                     
                     # Send the email
-                    logger.info("Attempting to send email...")
+                    logger.info(f"Attempting to send email to {', '.join(recipient_emails)}...")
                     email.send(fail_silently=False)
-                    logger.info(f"Email sent successfully to {assessment.manager_email}")
+                    logger.info(f"Email sent successfully to {len(recipient_emails)} recipients")
                     
                     # Clean up the PDF file after sending
                     if os.path.exists(pdf_path):
@@ -360,7 +374,7 @@ Assessment System'''
                     # Log the error with more details
                     logger.error(f"Failed to generate/send assessment report: {str(e)}")
                     logger.error(f"Assessment ID: {assessment.id}")
-                    logger.error(f"Manager Email: {assessment.manager_email}")
+                    logger.error(f"Manager Email(s): {', '.join(recipient_emails)}")
                     logger.error(f"Email settings: FROM_EMAIL={settings.DEFAULT_FROM_EMAIL}")
                     
                     # Log email configuration for debugging
@@ -1111,6 +1125,9 @@ def business_assessments(request, business_id):
             'candidate_name',
             'candidate_email',
             'position',
+            'region',
+            'manager_name',
+            'manager_email',
             'created_at',
             'completed',
             'unique_link',
@@ -1126,7 +1143,7 @@ def business_assessments(request, business_id):
 @require_http_methods(["GET", "POST"])
 @user_passes_test(is_admin)
 def admin_create_assessment(request, business_id):
-    """AJAX endpoint for admin to create assessments"""
+    """AJAX endpoint for admin to create assessments with multiple managers and primary selection"""
     try:
         business = Business.objects.get(pk=business_id)
         
@@ -1144,6 +1161,45 @@ def admin_create_assessment(request, business_id):
         
         if request.method == "POST":
             data = json.loads(request.body)
+            
+            # Get manager details
+            manager_ids = data.get('manager_ids', [])
+            primary_manager_id = data.get('primary_manager_id')
+            manager_name = data.get('manager_name', '')
+            manager_email = data.get('manager_email', '')
+            
+            # Validate manager selection
+            if not manager_ids and not (manager_name and manager_email):
+                return JsonResponse({
+                    'error': 'Please either select at least one manager or provide manager details'
+                }, status=400)
+            
+            # Handle primary manager
+            if primary_manager_id:
+                try:
+                    primary_manager = Manager.objects.get(id=primary_manager_id, business=business)
+                    # Use primary manager's details
+                    manager_name = primary_manager.name
+                    manager_email = primary_manager.email
+                    
+                    # Ensure primary manager is in the selected managers list
+                    if primary_manager_id not in manager_ids:
+                        manager_ids.append(primary_manager_id)
+                except Manager.DoesNotExist:
+                    return JsonResponse({
+                        'error': 'Selected primary manager does not exist'
+                    }, status=400)
+            elif manager_ids and not (manager_name and manager_email):
+                # If managers selected but no primary contact info provided,
+                # use the first manager (or default primary) as primary contact
+                managers = Manager.objects.filter(id__in=manager_ids, business=business)
+                primary_manager = managers.filter(is_primary=True).first() or managers.first()
+                if primary_manager:
+                    manager_name = primary_manager.name
+                    manager_email = primary_manager.email
+                    primary_manager_id = primary_manager.id
+            
+            # Create the assessment
             assessment = Assessment.objects.create(
                 business=business,
                 assessment_type='standard',
@@ -1151,13 +1207,17 @@ def admin_create_assessment(request, business_id):
                 candidate_email=data['candidate_email'],
                 position=data['position'],
                 region=data['region'],
-                manager_name=data['manager_name'],
-                manager_email=data['manager_email'],
-                created_by=hr_user  # Set the HR user as the creator
+                manager_name=manager_name,
+                manager_email=manager_email,
+                created_by=hr_user
             )
             
-            # Generate a secure unique link with our improved function
-            # Note: We need to save first to have an ID, then update with the unique link
+            # Add selected managers
+            if manager_ids:
+                managers = Manager.objects.filter(id__in=manager_ids, business=business)
+                assessment.managers.set(managers)
+            
+            # Generate a secure unique link
             assessment.unique_link = generate_secure_token(
                 entity_id=assessment.id,
                 token_type='assessment',
@@ -1206,16 +1266,26 @@ Best regards,
                     'unique_link': assessment.unique_link
                 }
             })
-            
+        
+        # For GET requests, return available fields and managers
+        managers = Manager.objects.filter(business=business, active=True).values(
+            'id', 'name', 'email', 'is_primary'
+        )
+        
         return JsonResponse({
             'fields': ['candidate_name', 'candidate_email', 'position', 'region', 
-                      'manager_name', 'manager_email']
+                      'manager_ids', 'primary_manager_id', 'manager_name', 'manager_email'],
+            'managers': list(managers)
         })
         
     except Business.DoesNotExist:
         return JsonResponse({'error': 'Business not found'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
 
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
@@ -1335,6 +1405,239 @@ Best regards,
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
  
+@require_http_methods(["GET", "PUT", "DELETE"])
+@user_passes_test(is_admin)
+def handle_assessment(request, assessment_id):
+    """Handle individual assessment operations (view, edit, delete)"""
+    try:
+        assessment = get_object_or_404(Assessment, id=assessment_id)
+        
+        if request.method == "GET":
+            # Return assessment details including manager ids
+            manager_ids = []
+            if hasattr(assessment, 'managers'):
+                manager_ids = list(assessment.managers.filter(active=True).values_list('id', flat=True))
+            
+            return JsonResponse({
+                'id': assessment.id,
+                'candidate_name': assessment.candidate_name,
+                'candidate_email': assessment.candidate_email,
+                'position': assessment.position,
+                'region': assessment.region,
+                'manager_name': assessment.manager_name,
+                'manager_email': assessment.manager_email,
+                'manager_ids': manager_ids,
+                'completed': assessment.completed,
+                'created_at': assessment.created_at.isoformat()
+            })
+            
+        elif request.method == "PUT":
+            # Update assessment
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+            
+            # Update basic fields
+            if 'candidate_name' in data:
+                assessment.candidate_name = data['candidate_name']
+            if 'candidate_email' in data:
+                assessment.candidate_email = data['candidate_email']
+            if 'position' in data:
+                assessment.position = data['position']
+            if 'region' in data:
+                assessment.region = data['region']
+            if 'manager_name' in data:
+                assessment.manager_name = data['manager_name']
+            if 'manager_email' in data:
+                assessment.manager_email = data['manager_email']
+            
+            # Save the assessment
+            assessment.save()
+            
+            # Update manager relationships if provided
+            if 'manager_ids' in data and hasattr(assessment, 'managers'):
+                try:
+                    # Get business for this assessment
+                    business = assessment.business
+                    
+                    # Get managers for this business with the provided IDs
+                    manager_ids = [int(id) for id in data['manager_ids'] if id]
+                    managers = Manager.objects.filter(
+                        id__in=manager_ids,
+                        business=business,
+                        active=True
+                    )
+                    
+                    # Update the managers relationship
+                    assessment.managers.set(managers)
+                except Exception as e:
+                    # Log the error but continue (don't fail the whole request)
+                    import traceback
+                    print(f"Error updating manager relationships: {str(e)}")
+                    print(traceback.format_exc())
+            
+            return JsonResponse({
+                'message': 'Assessment updated successfully',
+                'assessment': {
+                    'id': assessment.id,
+                    'candidate_name': assessment.candidate_name,
+                    'position': assessment.position,
+                    'region': assessment.region,
+                    'manager_name': assessment.manager_name,
+                    'manager_email': assessment.manager_email
+                }
+            })
+            
+        elif request.method == "DELETE":
+            # Delete assessment
+            assessment.delete()
+            return JsonResponse({
+                'message': 'Assessment deleted successfully'
+            })
+            
+    except Assessment.DoesNotExist:
+        return JsonResponse({'error': 'Assessment not found'}, status=404)
+    except Exception as e:
+        import traceback
+        print(f"Error in handle_assessment: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@require_http_methods(["GET"])
+@user_passes_test(is_admin)
+def assessment_managers(request, assessment_id):
+    """Get managers associated with an assessment"""
+    try:
+        # Get the assessment
+        assessment = get_object_or_404(Assessment, id=assessment_id)
+        
+        # Check if managers relationship exists
+        if hasattr(assessment, 'managers'):
+            # Get all active managers associated with this assessment
+            managers_data = []
+            for manager in assessment.managers.filter(active=True):
+                managers_data.append({
+                    'id': manager.id,
+                    'name': manager.name,
+                    'email': manager.email,
+                    'is_primary': getattr(manager, 'is_primary', False)
+                })
+            
+            return JsonResponse({
+                'managers': managers_data
+            })
+        else:
+            # If no managers relationship, return empty list
+            return JsonResponse({
+                'managers': []
+            })
+            
+    except Assessment.DoesNotExist:
+        return JsonResponse({'error': 'Assessment not found'}, status=404)
+    except Exception as e:
+        import traceback
+        print(f"Error in assessment_managers: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=400)
+
+#--admin manager
+@require_http_methods(["GET", "POST"])
+@user_passes_test(is_admin)
+def manage_managers(request, business_id):
+    """Handle listing and creating managers"""
+    business = get_object_or_404(Business, id=business_id)
+    
+    if request.method == "GET":
+        # List managers
+        managers = Manager.objects.filter(
+            business_id=business_id,
+            active=True
+        ).values('id', 'name', 'email')
+        
+        return JsonResponse({'managers': list(managers)})
+    
+    elif request.method == "POST":
+        # Create manager
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            email = data.get('email', '').strip()
+
+            if not name or not email:
+                return JsonResponse({
+                    'error': 'Manager name and email are required'
+                }, status=400)
+
+            # Check if a manager with this email already exists
+            if Manager.objects.filter(business=business, email=email, active=True).exists():
+                return JsonResponse({
+                    'error': f'A manager with email {email} already exists'
+                }, status=400)
+
+            # Create the manager
+            manager = Manager.objects.create(
+                business=business,
+                name=name,
+                email=email
+            )
+
+            return JsonResponse({
+                'id': manager.id,
+                'name': manager.name,
+                'email': manager.email
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+@require_http_methods(["PUT", "DELETE"])
+@user_passes_test(is_admin)
+def manage_manager(request, manager_id):
+    """Update or delete a manager"""
+    manager = get_object_or_404(Manager, id=manager_id)
+    
+    if request.method == "DELETE":
+        # Soft delete the manager
+        manager.active = False
+        manager.save()
+        return JsonResponse({'message': 'Manager deleted successfully'})
+    
+    if request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+            name = data.get('name')
+            email = data.get('email')
+            
+            if name is not None:
+                manager.name = name
+            
+            if email is not None:
+                # Check if another manager has this email
+                existing = Manager.objects.filter(
+                    business=manager.business,
+                    email=email,
+                    active=True
+                ).exclude(id=manager.id).first()
+                
+                if existing:
+                    return JsonResponse({
+                        'error': f'Another manager with email {email} already exists'
+                    }, status=400)
+                
+                manager.email = email
+            
+            manager.save()
+            
+            return JsonResponse({
+                'id': manager.id,
+                'name': manager.name,
+                'email': manager.email,
+            })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
 
 #hr views
 @login_required
@@ -1354,7 +1657,7 @@ def dashboard(request):
 @login_required
 @user_passes_test(is_hr_user)
 def create_assessment(request):
-    """View for HR users to create new assessments"""
+    """View for HR users to create new assessments with multiple managers"""
     if request.method == 'POST':
         # Pass the current user's business to the form
         form = AssessmentCreationForm(request.POST, business=request.user.business)
@@ -1365,7 +1668,10 @@ def create_assessment(request):
             assessment.business = request.user.business
             assessment.save()
             
-            # Generate a secure unique link with our improved function
+            # Save the ManyToMany manager relationship (form.save handles this now)
+            form.save_m2m()
+            
+            # Generate a secure unique link
             assessment.unique_link = generate_secure_token(
                 entity_id=assessment.id,
                 token_type='assessment',
@@ -1391,7 +1697,7 @@ Please click the following link to complete your assessment:
 This link is unique to you and can only be used once.
 
 Best regards,
-{request.user.get_full_name() or request.user.username}'''
+{assessment.manager_name}'''
                 
                 email = EmailMessage(
                     subject,
@@ -1407,9 +1713,15 @@ Best regards,
             
             return redirect('baseapp:dashboard')
     else:
-        form = AssessmentCreationForm()
+        form = AssessmentCreationForm(business=request.user.business)
     
-    return render(request, 'baseapp/assessment_form.html', {'form': form})
+    # Get managers for the template context
+    managers = Manager.objects.filter(business=request.user.business, active=True)
+    
+    return render(request, 'baseapp/assessment_form.html', {
+        'form': form,
+        'managers': managers
+    })
 
 @login_required
 @user_passes_test(is_hr_user)

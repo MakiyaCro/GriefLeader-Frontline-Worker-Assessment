@@ -103,6 +103,21 @@ class BenchmarkBatch(models.Model):
     def __str__(self):
         return f"{self.business.name} - {self.name}"
 
+class Manager(models.Model):
+    """Represents a manager who can be assigned to assessments"""
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='managers')
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.email})"
+    
+    class Meta:
+        unique_together = ['business', 'email']
+        ordering = ['name']
+
 class Assessment(models.Model):
     """Represents an assessment sent to a candidate"""
     ASSESSMENT_TYPE_CHOICES = [
@@ -127,6 +142,12 @@ class Assessment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+
+    managers = models.ManyToManyField(
+        Manager,
+        related_name='assessments',
+        blank=True
+    )
 
     benchmark_batch = models.ForeignKey(
         BenchmarkBatch, 
@@ -191,3 +212,4 @@ class QuestionResponse(models.Model):
     def __str__(self):
         choice = "A" if self.chose_a else "B"
         return f"Response {choice} for {self.question_pair}"
+    

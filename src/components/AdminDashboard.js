@@ -25,11 +25,25 @@ const AdminDashboard = () => {
     last_name: '',
     password: ''
   });
+  const [showAddManagerModal, setShowAddManagerModal] = useState(false);
+  const [showEditManagerModal, setShowEditManagerModal] = useState(false);
+  const [currentManager, setCurrentManager] = useState(null);
+  const [newManager, setNewManager] = useState({
+    name: '',
+    email: ''
+  });
+  const [managers, setManagers] = useState([]);
 
   // Fetch businesses when component mounts
   useEffect(() => {
     fetchBusinesses();
   }, []);
+  
+  useEffect(() => {
+  if (selectedBusiness) {
+    fetchManagers();
+  }
+}, [selectedBusiness]);
 
   // Get CSRF token
   const getCsrfToken = () => {
@@ -64,6 +78,20 @@ const AdminDashboard = () => {
       if (!response.ok) throw new Error('Failed to fetch business details');
       const data = await response.json();
       setBusinessDetails(data);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Fetch managers for the selected business
+  const fetchManagers = async () => {
+    if (!selectedBusiness) return;
+    
+    try {
+      const response = await fetch(`/api/businesses/${selectedBusiness.id}/managers/`);
+      if (!response.ok) throw new Error('Failed to fetch managers');
+      const data = await response.json();
+      setManagers(data.managers || []);
     } catch (err) {
       setError(err.message);
     }
@@ -265,6 +293,105 @@ const AdminDashboard = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add new manager
+  const handleAddManager = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedBusiness) {
+      setError('No business selected');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/businesses/${selectedBusiness.id}/managers/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify(newManager),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add manager');
+      }
+
+      // Refresh managers list
+      await fetchManagers();
+      
+      // Close the modal
+      setShowAddManagerModal(false);
+      
+      // Reset form
+      setNewManager({
+        name: '',
+        email: ''
+      });
+      
+      // Show success message
+      setSuccess('Manager added successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete manager
+  const handleDeleteManager = async (managerId) => {
+    try {
+      const response = await fetch(`/api/managers/${managerId}/`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRFToken': getCsrfToken(),
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete manager');
+      
+      // Refresh managers list
+      await fetchManagers();
+      setSuccess('Manager deleted successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Update manager
+  const handleEditManager = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch(`/api/managers/${currentManager.id}/`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({
+          name: currentManager.name,
+          email: currentManager.email
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update manager');
+      
+      // Refresh managers list
+      await fetchManagers();
+      
+      // Close the modal
+      setShowEditManagerModal(false);
+      setSuccess('Manager updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -492,6 +619,70 @@ const AdminDashboard = () => {
                       }}
                     />
                   )}
+                  </div>
+                  
+                {/* Manager Section */}
+                <div className="bg-gray-50 p-6 rounded-lg mt-8">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">Managers</h2>
+                    <button 
+                      onClick={() => setShowAddManagerModal(true)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      Add Manager
+                    </button>
+                  </div>
+                  
+                  {managers.length === 0 ? (
+                    <p className="text-gray-500">No managers found</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Name
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Email
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {managers.map((manager) => (
+                            <tr key={manager.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {manager.name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {manager.email}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button 
+                                  onClick={() => {
+                                    setCurrentManager(manager);
+                                    setShowEditManagerModal(true);
+                                  }}
+                                  className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                >
+                                  Edit
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteManager(manager.id)}
+                                  className="text-red-600 hover:text-red-900"
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
               )}
@@ -658,6 +849,110 @@ const AdminDashboard = () => {
                 Delete Business
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Manager Modal */}
+      {showAddManagerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h2 className="text-2xl font-bold mb-6">Add Manager</h2>
+            <form onSubmit={handleAddManager} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={newManager.name}
+                  onChange={(e) => setNewManager({...newManager, name: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newManager.email}
+                  onChange={(e) => setNewManager({...newManager, email: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddManagerModal(false)}
+                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Add Manager
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Manager Modal */}
+      {showEditManagerModal && currentManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h2 className="text-2xl font-bold mb-6">Edit Manager</h2>
+            <form onSubmit={handleEditManager} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={currentManager.name}
+                  onChange={(e) => setCurrentManager({...currentManager, name: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={currentManager.email}
+                  onChange={(e) => setCurrentManager({...currentManager, email: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditManagerModal(false)}
+                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Update Manager
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

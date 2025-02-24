@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Copy, Mail, X, Download, Pencil, Trash2 } from 'lucide-react';
+import { FileText, Copy, Mail, X, Download, Pencil, Trash2, ChevronDown } from 'lucide-react';
 
 const AssessmentSection = ({ businessDetails }) => {
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -21,24 +22,28 @@ const AssessmentSection = ({ businessDetails }) => {
     status: false
   });
   const [newAssessment, setNewAssessment] = useState({
-    candidate_name: '',
-    candidate_email: '',
-    position: '',
-    region: '',
-    manager_name: '',
-    manager_email: ''
+  candidate_name: '',
+  candidate_email: '',
+  position: '',
+  region: '',
+  manager_ids: [],  // Changed from single manager_id to array of ids
+  manager_name: '',
+  manager_email: ''
   });
   const [editAssessment, setEditAssessment] = useState({
     candidate_name: '',
     candidate_email: '',
     position: '',
     region: '',
+    manager_ids: [],
+    primary_manager_id: '',
     manager_name: '',
     manager_email: ''
   });
   const [showReportModal, setShowReportModal] = useState(false);
   const [showResendModal, setShowResendModal] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
+  const [managers, setManagers] = useState([]);
 
   // Get CSRF token
   const getCsrfToken = () => {
@@ -49,6 +54,7 @@ const AssessmentSection = ({ businessDetails }) => {
   useEffect(() => {
     if (businessDetails?.business?.id) {
       fetchAssessments();
+      fetchManagers();
     }
   }, [businessDetails?.business?.id]);
 
@@ -67,6 +73,19 @@ const AssessmentSection = ({ businessDetails }) => {
       setLoading(false);
     }
   };
+
+  const fetchManagers = async () => {
+  if (!businessDetails?.business?.id) return;
+  
+  try {
+    const response = await fetch(`/api/businesses/${businessDetails.business.id}/managers/`);
+    if (!response.ok) throw new Error('Failed to fetch managers');
+    const data = await response.json();
+    setManagers(data.managers);
+  } catch (err) {
+    console.error('Error fetching managers:', err);
+  }
+};
 
   const copyAssessmentLink = (uniqueLink) => {
     const baseUrl = window.location.origin;
@@ -101,28 +120,34 @@ const AssessmentSection = ({ businessDetails }) => {
     }
   };
 
-  const handleEditAssessment = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`/api/assessments/${selectedAssessment.id}/`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCsrfToken(),
-        },
-        body: JSON.stringify(editAssessment)
-      });
+ const handleEditAssessment = async (e) => {
+   e.preventDefault();
+   // Validate that at least one manager is selected
+  if (editAssessment.manager_ids.length === 0) {
+    setError('Please select at least one manager for this assessment.');
+    return;
+  }
+  try {
+    const response = await fetch(`/api/assessments/${selectedAssessment.id}/`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body: JSON.stringify(editAssessment)
+    });
 
-      if (!response.ok) throw new Error('Failed to update assessment');
+    if (!response.ok) throw new Error('Failed to update assessment');
 
-      await fetchAssessments();
-      setShowEditModal(false);
-      setSelectedAssessment(null);
-      alert('Assessment updated successfully!');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+    await fetchAssessments();
+    setShowEditModal(false);
+    setSelectedAssessment(null);
+    setSuccess('Assessment updated successfully!');
+    setTimeout(() => setSuccess(null), 3000);
+  } catch (err) {
+    setError(err.message);
+  }
+};
 
   const handleDeleteAssessment = async () => {
     try {
@@ -138,7 +163,7 @@ const AssessmentSection = ({ businessDetails }) => {
       await fetchAssessments();
       setShowDeleteModal(false);
       setSelectedAssessment(null);
-      alert('Assessment deleted successfully!');
+      //alert('Assessment deleted successfully!');
     } catch (err) {
       setError(err.message);
     }
@@ -366,15 +391,58 @@ const AssessmentSection = ({ businessDetails }) => {
                           <button
                             onClick={() => {
                               setSelectedAssessment(assessment);
-                              setEditAssessment({
-                                candidate_name: assessment.candidate_name,
-                                candidate_email: assessment.candidate_email,
-                                position: assessment.position,
-                                region: assessment.region,
-                                manager_name: assessment.manager_name,
-                                manager_email: assessment.manager_email
-                              });
-                              setShowEditModal(true);
+                              
+                              // Get current managers for this assessment
+                              const getAssessmentManagers = async () => {
+                                try {
+                                  const response = await fetch(`/api/assessments/${assessment.id}/managers/`);
+                                  if (response.ok) {
+                                    const data = await response.json();
+                                    const managerIds = data.managers.map(m => m.id);
+                                    const primaryManager = data.managers.find(m => m.is_primary);
+                                    
+                                    setEditAssessment({
+                                      candidate_name: assessment.candidate_name,
+                                      candidate_email: assessment.candidate_email,
+                                      position: assessment.position,
+                                      region: assessment.region,
+                                      manager_ids: managerIds,
+                                      primary_manager_id: primaryManager?.id || '',
+                                      manager_name: assessment.manager_name,
+                                      manager_email: assessment.manager_email
+                                    });
+                                  } else {
+                                    // Fallback if we can't get managers
+                                    setEditAssessment({
+                                      candidate_name: assessment.candidate_name,
+                                      candidate_email: assessment.candidate_email,
+                                      position: assessment.position,
+                                      region: assessment.region,
+                                      manager_ids: [],
+                                      primary_manager_id: '',
+                                      manager_name: assessment.manager_name,
+                                      manager_email: assessment.manager_email
+                                    });
+                                  }
+                                  setShowEditModal(true);
+                                } catch (err) {
+                                  console.error("Error fetching assessment managers:", err);
+                                  // Fallback on error
+                                  setEditAssessment({
+                                    candidate_name: assessment.candidate_name,
+                                    candidate_email: assessment.candidate_email,
+                                    position: assessment.position,
+                                    region: assessment.region,
+                                    manager_ids: [],
+                                    primary_manager_id: '',
+                                    manager_name: assessment.manager_name,
+                                    manager_email: assessment.manager_email
+                                  });
+                                  setShowEditModal(true);
+                                }
+                              };
+                              
+                              getAssessmentManagers();
                             }}
                             className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200"
                           >
@@ -421,7 +489,7 @@ const AssessmentSection = ({ businessDetails }) => {
       {/* Edit Modal */}
       {showEditModal && selectedAssessment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
+          <div className="bg-white rounded-lg w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Edit Assessment</h3>
               <button
@@ -495,37 +563,143 @@ const AssessmentSection = ({ businessDetails }) => {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Manager Name
-                </label>
-                <input
-                  type="text"
-                  value={editAssessment.manager_name}
-                  onChange={(e) => setEditAssessment({
-                    ...editAssessment,
-                    manager_name: e.target.value
-                  })}
-                  className="w-full p-2 border rounded"
-                  required
-                />
+              
+              {/* Manager Selection Section */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-md font-medium mb-3">Manager Selection</h4>
+                
+                {/* Manager Multi-Selection */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select Managers to Notify
+                  </label>
+                  {managers.length > 0 ? (
+                    <div className="bg-white border rounded p-3 max-h-60 overflow-y-auto manager-checkbox-list">
+                      {managers.map(manager => (
+                        <div key={manager.id} className="flex items-start mb-2">
+                          <input
+                            type="checkbox"
+                            id={`edit-manager-${manager.id}`}
+                            checked={editAssessment.manager_ids.includes(manager.id)}
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              let updatedManagerIds = [...editAssessment.manager_ids];
+                              
+                              if (isChecked) {
+                                updatedManagerIds.push(manager.id);
+                              } else {
+                                updatedManagerIds = updatedManagerIds.filter(id => id !== manager.id);
+                                
+                                // If we unchecked the primary manager, reset primary_manager_id
+                                if (editAssessment.primary_manager_id === manager.id) {
+                                  setEditAssessment({
+                                    ...editAssessment,
+                                    manager_ids: updatedManagerIds,
+                                    primary_manager_id: '',
+                                    ...(editAssessment.manager_name === manager.name ? 
+                                      { manager_name: '', manager_email: '' } : {})
+                                  });
+                                  return;
+                                }
+                              }
+                              
+                              setEditAssessment({
+                                ...editAssessment,
+                                manager_ids: updatedManagerIds
+                              });
+                            }}
+                            className="h-5 w-5 mr-2 rounded border-gray-300 mt-1"
+                          />
+                          <label htmlFor={`edit-manager-${manager.id}`} className="flex-1 cursor-pointer">
+                            <div className="font-medium">
+                              {manager.name}
+                              {manager.is_primary && (
+                                <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
+                                  Default Primary
+                                </span>
+                              )}
+                              {editAssessment.primary_manager_id === manager.id && (
+                                <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
+                                  Selected as Primary
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500">{manager.email}</div>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 mb-2 p-3 bg-gray-50 rounded">
+                      No managers available. Enter manager details below.
+                    </div>
+                  )}
+                </div>
+
+                {/* Primary Manager Selection - only show if managers are selected */}
+                {editAssessment.manager_ids.length > 0 ? (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select Primary Contact <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={editAssessment.primary_manager_id || ''}
+                      onChange={(e) => {
+                        const managerId = e.target.value;
+                        if (managerId) {
+                          const selectedManager = managers.find(m => m.id.toString() === managerId);
+                          setEditAssessment({
+                            ...editAssessment,
+                            primary_manager_id: managerId,
+                            manager_name: selectedManager.name,
+                            manager_email: selectedManager.email
+                          });
+                        } else {
+                          // If no primary selected, use the first manager as fallback
+                          const firstManager = managers.find(m => editAssessment.manager_ids.includes(m.id));
+                          if (firstManager) {
+                            setEditAssessment({
+                              ...editAssessment,
+                              primary_manager_id: firstManager.id,
+                              manager_name: firstManager.name,
+                              manager_email: firstManager.email
+                            });
+                          }
+                        }
+                      }}
+                      className="w-full p-2 pr-10 border rounded appearance-none"
+                      required
+                    >
+                      <option value="">Select Primary Contact</option>
+                      {managers
+                        .filter(manager => editAssessment.manager_ids.includes(manager.id))
+                        .map(manager => (
+                          <option key={manager.id} value={manager.id}>
+                            {manager.name} {manager.is_primary ? '(Default Primary)' : ''}
+                          </option>
+                        ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    This manager's name will appear as the sender on emails.
+                  </p>
+                </div>
+              ) : null}
+
+                {editAssessment.manager_ids.length === 0 && (
+                  <div className="bg-yellow-50 border border-yellow-100 rounded p-3 mt-4">
+                    <p className="text-sm text-yellow-800">
+                      Please select at least one manager to receive notifications when the assessment is completed.
+                    </p>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Manager Email
-                </label>
-                <input
-                  type="email"
-                  value={editAssessment.manager_email}
-                  onChange={(e) => setEditAssessment({
-                    ...editAssessment,
-                    manager_email: e.target.value
-                  })}
-                  className="w-full p-2 border rounded"
-                  required
-                />
-              </div>
-              <div className="flex justify-end space-x-4 pt-4">
+              
+              <div className="flex justify-end space-x-4 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => {
@@ -648,7 +822,7 @@ const AssessmentSection = ({ businessDetails }) => {
       {/* Create Assessment Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
+          <div className="bg-white rounded-lg w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Create New Assessment</h3>
               <button
@@ -660,6 +834,11 @@ const AssessmentSection = ({ businessDetails }) => {
             </div>
             <form onSubmit={async (e) => {
               e.preventDefault();
+              if (newAssessment.manager_ids.length === 0) {
+                setError('Please select at least one manager for this assessment.');
+                return;
+              }
+              
               try {
                 const response = await fetch(`/api/businesses/${businessDetails.business.id}/create-assessment/`, {
                   method: 'POST',
@@ -681,6 +860,8 @@ const AssessmentSection = ({ businessDetails }) => {
                   candidate_email: '',
                   position: '',
                   region: '',
+                  manager_ids: [],
+                  primary_manager_id: '',
                   manager_name: '',
                   manager_email: ''
                 });
@@ -688,101 +869,221 @@ const AssessmentSection = ({ businessDetails }) => {
 
                 // Refresh assessments list
                 await fetchAssessments();
+                
+                // Show success message
+                setSuccess('Assessment created successfully');
+                setTimeout(() => setSuccess(null), 3000);
               } catch (err) {
                 setError(err.message);
               }
             }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Candidate Name
-                </label>
-                <input
-                  type="text"
-                  value={newAssessment.candidate_name}
-                  onChange={(e) => setNewAssessment({
-                    ...newAssessment,
-                    candidate_name: e.target.value
-                  })}
-                  className="w-full p-2 border rounded"
-                  required
-                />
+              {/* Candidate Info Section */}
+              <div className="mb-6">
+                <h4 className="text-md font-medium mb-3 pb-2 border-b">Candidate Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Candidate Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newAssessment.candidate_name}
+                      onChange={(e) => setNewAssessment({
+                        ...newAssessment,
+                        candidate_name: e.target.value
+                      })}
+                      className="w-full p-2 border rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Candidate Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={newAssessment.candidate_email}
+                      onChange={(e) => setNewAssessment({
+                        ...newAssessment,
+                        candidate_email: e.target.value
+                      })}
+                      className="w-full p-2 border rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Position <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newAssessment.position}
+                      onChange={(e) => setNewAssessment({
+                        ...newAssessment,
+                        position: e.target.value
+                      })}
+                      className="w-full p-2 border rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Region <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newAssessment.region}
+                      onChange={(e) => setNewAssessment({
+                        ...newAssessment,
+                        region: e.target.value
+                      })}
+                      className="w-full p-2 border rounded"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Candidate Email
-                </label>
-                <input
-                  type="email"
-                  value={newAssessment.candidate_email}
-                  onChange={(e) => setNewAssessment({
-                    ...newAssessment,
-                    candidate_email: e.target.value
-                  })}
-                  className="w-full p-2 border rounded"
-                  required
-                />
+
+              {/* Manager Selection Section */}
+              <div className="mb-6">
+                <h4 className="text-md font-medium mb-3 pb-2 border-b">Manager Selection</h4>
+                
+                {/* Manager Multi-Selection */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select Managers to Notify
+                  </label>
+                  {managers.length > 0 ? (
+                    <div className="bg-white border rounded p-3 max-h-60 overflow-y-auto manager-checkbox-list">
+                      {managers.map(manager => (
+                        <div key={manager.id} className="flex items-start mb-2">
+                          <input
+                            type="checkbox"
+                            id={`manager-${manager.id}`}
+                            checked={newAssessment.manager_ids.includes(manager.id)}
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              let updatedManagerIds = [...newAssessment.manager_ids];
+                              
+                              if (isChecked) {
+                                updatedManagerIds.push(manager.id);
+                              } else {
+                                updatedManagerIds = updatedManagerIds.filter(id => id !== manager.id);
+                                
+                                // If we unchecked the primary manager, reset primary_manager_id
+                                if (newAssessment.primary_manager_id === manager.id) {
+                                  setNewAssessment({
+                                    ...newAssessment,
+                                    manager_ids: updatedManagerIds,
+                                    primary_manager_id: '',
+                                    // Only reset these if this was the source of the contact info
+                                    ...(newAssessment.manager_name === manager.name ? 
+                                      { manager_name: '', manager_email: '' } : {})
+                                  });
+                                  return;
+                                }
+                              }
+                              
+                              setNewAssessment({
+                                ...newAssessment,
+                                manager_ids: updatedManagerIds
+                              });
+                            }}
+                            className="h-5 w-5 mr-2 rounded border-gray-300 mt-1"
+                          />
+                          <label htmlFor={`manager-${manager.id}`} className="flex-1 cursor-pointer manager-details">
+                            <div className="manager-name">
+                              {manager.name}
+                              {manager.is_primary && (
+                                <span className="primary-badge">
+                                  Default Primary
+                                </span>
+                              )}
+                              {newAssessment.primary_manager_id === manager.id && (
+                                <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
+                                  Selected as Primary
+                                </span>
+                              )}
+                            </div>
+                            <div className="manager-email">{manager.email}</div>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 mb-2 p-3 bg-gray-50 rounded">
+                      No managers available. Enter manager details below.
+                    </div>
+                  )}
+                  <p className="manager-help-text">
+                    These managers will be notified when the assessment is completed.
+                  </p>
+                </div>
+
+                {/* Primary Manager Selection - only show if managers are selected */}
+                {newAssessment.manager_ids.length > 0 ? (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Select Primary Contact <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={newAssessment.primary_manager_id || ''}
+                        onChange={(e) => {
+                          const managerId = e.target.value;
+                          if (managerId) {
+                            const selectedManager = managers.find(m => m.id.toString() === managerId);
+                            setNewAssessment({
+                              ...newAssessment,
+                              primary_manager_id: managerId,
+                              manager_name: selectedManager.name,
+                              manager_email: selectedManager.email
+                            });
+                          } else {
+                            // If no primary selected, use the first manager as fallback
+                            const firstManager = managers.find(m => newAssessment.manager_ids.includes(m.id));
+                            if (firstManager) {
+                              setNewAssessment({
+                                ...newAssessment,
+                                primary_manager_id: firstManager.id,
+                                manager_name: firstManager.name,
+                                manager_email: firstManager.email
+                              });
+                            }
+                          }
+                        }}
+                        className="w-full p-2 pr-10 border rounded appearance-none"
+                        required
+                      >
+                        <option value="">Select Primary Contact</option>
+                        {managers
+                          .filter(manager => newAssessment.manager_ids.includes(manager.id))
+                          .map(manager => (
+                            <option key={manager.id} value={manager.id}>
+                              {manager.name} {manager.is_primary ? '(Default Primary)' : ''}
+                            </option>
+                          ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      This manager's name will appear as the sender on emails.
+                    </p>
+                  </div>
+                ) : null}
+
+                {newAssessment.manager_ids.length === 0 && (
+                  <div className="bg-yellow-50 border border-yellow-100 rounded p-3 mt-4">
+                    <p className="text-sm text-yellow-800">
+                      Please select at least one manager to receive notifications when the assessment is completed.
+                    </p>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Position
-                </label>
-                <input
-                  type="text"
-                  value={newAssessment.position}
-                  onChange={(e) => setNewAssessment({
-                    ...newAssessment,
-                    position: e.target.value
-                  })}
-                  className="w-full p-2 border rounded"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Region
-                </label>
-                <input
-                  type="text"
-                  value={newAssessment.region}
-                  onChange={(e) => setNewAssessment({
-                    ...newAssessment,
-                    region: e.target.value
-                  })}
-                  className="w-full p-2 border rounded"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Manager Name
-                </label>
-                <input
-                  type="text"
-                  value={newAssessment.manager_name}
-                  onChange={(e) => setNewAssessment({
-                    ...newAssessment,
-                    manager_name: e.target.value
-                  })}
-                  className="w-full p-2 border rounded"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Manager Email
-                </label>
-                <input
-                  type="email"
-                  value={newAssessment.manager_email}
-                  onChange={(e) => setNewAssessment({
-                    ...newAssessment,
-                    manager_email: e.target.value
-                  })}
-                  className="w-full p-2 border rounded"
-                  required
-                />
-              </div>
-              <div className="flex justify-end space-x-4 pt-4">
+
+              <div className="flex justify-end space-x-4 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
@@ -801,7 +1102,6 @@ const AssessmentSection = ({ businessDetails }) => {
           </div>
         </div>
       )}
-
       {/* Error Modal */}
       {error && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -810,6 +1110,21 @@ const AssessmentSection = ({ businessDetails }) => {
             <p className="text-gray-700 mb-4">{error}</p>
             <button
               onClick={() => setError(null)}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Success Modal */}
+      {success && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md">
+            <h3 className="text-lg font-semibold text-green-600 mb-2">Success</h3>
+            <p className="text-gray-700 mb-4">{success}</p>
+            <button
+              onClick={() => setSuccess(null)}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
               Close
