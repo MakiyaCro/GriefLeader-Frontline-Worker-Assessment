@@ -144,10 +144,10 @@ class SecurityHeadersMiddleware:
         
         # Content-Security-Policy: Controls what resources the browser is allowed to load
         response['Content-Security-Policy'] = "default-src 'self'; " \
-                                             "script-src 'self' https://cdnjs.cloudflare.com; " \
-                                             "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " \
+                                             "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com; " \
+                                             "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " \
                                              "img-src 'self' data:; " \
-                                             "font-src 'self' https://cdnjs.cloudflare.com; " \
+                                             "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " \
                                              "frame-ancestors 'self'; " \
                                              "form-action 'self'"
         
