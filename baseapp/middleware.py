@@ -14,9 +14,9 @@ class SecurityMiddleware:
         # Compile regex patterns for faster matching
         self.suspicious_patterns = [
             re.compile(r'\.php$'),              # PHP files
-            re.compile(r'wp-'),                 # WordPress scanning
-            re.compile(r'\.env$'),              # Environment file
-            re.compile(r'eval-stdin'),          # PHP eval attempts
+            re.compile(r'/wp-'),                # WordPress scanning (changed from r'wp-' to avoid blocking legitimate paths)
+            re.compile(r'/\.env$'),             # Environment file (added leading slash)
+            re.compile(r'/eval-stdin'),         # PHP eval attempts
             re.compile(r'/vendor/'),            # Common vendor paths
             re.compile(r'/admin\.php'),         # Admin PHP files
             re.compile(r'\.(git|svn|htaccess)'),# Hidden files
@@ -44,6 +44,10 @@ class SecurityMiddleware:
     def __call__(self, request):
         # Skip middleware in debug mode if configured to do so
         if getattr(settings, 'BYPASS_SECURITY_MIDDLEWARE_IN_DEBUG', False) and settings.DEBUG:
+            return self.get_response(request)
+            
+        # Skip for static files and normal site URLs
+        if request.path.startswith('/static/') or request.path == '/' or request.path == '/login/' or request.path.startswith('/admin/'):
             return self.get_response(request)
             
         client_ip = self._get_client_ip(request)
@@ -85,6 +89,10 @@ class SecurityMiddleware:
     def _is_suspicious_request(self, request):
         """Check if this request matches known suspicious patterns"""
         path = request.path.lower()
+        
+        # Skip checking for common site paths (add more as needed)
+        if path == '/' or path == '/login/' or path.startswith('/static/') or path.startswith('/admin/'):
+            return False
         
         # Check path against suspicious patterns
         for pattern in self.suspicious_patterns:
