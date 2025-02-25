@@ -21,6 +21,7 @@ from django.template.loader import render_to_string
 from weasyprint import HTML, CSS
 import os
 from io import StringIO
+from .rate_limiting import rate_limit
 
 #link generation
 def generate_secure_token(entity_id=None, token_type='general', length=16):
@@ -111,6 +112,7 @@ def home(request):
             return redirect('admin:index')
     return render(request, 'baseapp/home.html')
 
+@rate_limit('login', limit=5, period=60)
 def login_view(request):
     """Handle user login"""
     if request.user.is_authenticated:
@@ -136,6 +138,7 @@ def logout_view(request):
     messages.success(request, 'You have been logged out successfully.')
     return redirect('baseapp:login')
 
+@rate_limit('password_reset', limit=3, period=300)
 def password_reset_view(request):
     """Handle password reset request"""
     if request.method == 'POST':
@@ -194,6 +197,7 @@ If you did not request this reset, please ignore this email.''',
     
     return render(request, 'baseapp/password_reset.html', {'form': form})
 
+@rate_limit('password_reset_confirm', limit=5, period=300)
 def password_reset_confirm(request, token):
     """Handle password reset confirmation"""
     # Check if token exists and is valid
@@ -298,8 +302,9 @@ def take_assessment(request, unique_link):
                     
                     # Add all associated managers
                     if assessment.managers.exists():
-                        recipient_emails.extend(assessment.managers.filter(active=True).values_list('email', flat=True))
-                        logger.info(f"Found {assessment.managers.count()} associated managers")
+                        manager_emails = list(assessment.managers.filter(active=True).values_list('email', flat=True))
+                        recipient_emails.extend(manager_emails)
+                        logger.info(f"Found {len(manager_emails)} associated managers")
                     
                     # If no associated managers, fall back to the specified manager email
                     if not recipient_emails:
@@ -325,7 +330,7 @@ This is an automated message. Please do not reply to this email.
 Best regards,
 {assessment.manager_name}'''
 
-                    logger.info(f"Preparing to send email for assessment ID: {assessment.id} to {len(recipient_emails)} recipients")
+                    logger.info(f"Preparing to send email for assessment ID: {assessment.id} to {len(recipient_emails)} recipients: {', '.join(recipient_emails)}")
                     
                     # Verify PDF exists and has content
                     if os.path.exists(pdf_path):
@@ -343,7 +348,7 @@ Best regards,
                         subject=subject,
                         body=message,
                         from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=recipient_emails,
+                        to=recipient_emails,  # Send to all recipients at once
                         reply_to=[settings.DEFAULT_FROM_EMAIL]
                     )
                     
@@ -351,7 +356,7 @@ Best regards,
                         email.attach(filename, f.read(), 'application/pdf')
                     
                     # Send the email
-                    logger.info(f"Attempting to send email to {', '.join(recipient_emails)}...")
+                    logger.info(f"Sending email to {len(recipient_emails)} recipients: {', '.join(recipient_emails)}")
                     email.send(fail_silently=False)
                     logger.info(f"Email sent successfully to {len(recipient_emails)} recipients")
                     

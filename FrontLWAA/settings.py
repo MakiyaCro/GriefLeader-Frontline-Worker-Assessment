@@ -57,8 +57,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'baseapp.middleware.SecurityMiddleware',
+    'baseapp.middleware.SecurityHeadersMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add Whitenoise middleware here
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
