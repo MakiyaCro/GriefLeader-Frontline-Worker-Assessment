@@ -291,14 +291,14 @@ def take_assessment(request, unique_link):
                 assessment.completed_at = timezone.now()
                 assessment.save()
                 
+                # Initialize recipient_emails outside try block to ensure it exists in all code paths
+                recipient_emails = []
+                
                 try:
                     logger.info(f"Starting PDF generation for assessment ID: {assessment.id}")
                     # Generate PDF report
                     pdf_path = generate_assessment_report(assessment_response)
                     logger.info(f"PDF generated successfully at {pdf_path}")
-                    
-                    # Get recipient list - include all associated managers plus the fallback email
-                    recipient_emails = []
                     
                     # Add all associated managers
                     if assessment.managers.exists():
