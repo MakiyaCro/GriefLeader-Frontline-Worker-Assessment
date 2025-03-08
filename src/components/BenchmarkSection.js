@@ -47,6 +47,12 @@ Best regards,
     }
   }, [businessDetails?.business?.id]);
 
+  useEffect(() => {
+    if (businessDetails?.business?.id && activeTab === 'results') {
+      fetchBenchmarkData(selectedRegion);
+    }
+  }, [selectedRegion, businessDetails?.business?.id, activeTab]);
+
   // Fetch email template
   const fetchEmailTemplate = async () => {
     try {
@@ -87,27 +93,23 @@ Best regards,
   };
 
   // Fetch benchmark data
-  const fetchBenchmarkData = async () => {
+  const fetchBenchmarkData = async (selectedRegion = 'all') => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/businesses/${businessDetails.business.id}/benchmark-results/`);
+      const url = selectedRegion === 'all' 
+        ? `/api/businesses/${businessDetails.business.id}/benchmark-results/`
+        : `/api/businesses/${businessDetails.business.id}/benchmark-results/?region=${encodeURIComponent(selectedRegion)}`;
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (!response.ok) {
-        const completedAssessments = await fetch(`/api/businesses/${businessDetails.business.id}/benchmark-emails/`);
-        const emailData = await completedAssessments.json();
-        const hasCompletedAssessments = emailData.emails?.some(email => email.completed);
-        
-        if (hasCompletedAssessments) {
-          throw new Error('Failed to fetch benchmark data for completed assessments');
-        }
+        throw new Error(data.error || 'Failed to fetch benchmark data');
       }
       
       setBenchmarkData(data.results || []);
     } catch (error) {
-      if (error.message !== 'Failed to fetch benchmark data') {
-        setUploadError(error.message);
-      }
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -520,7 +522,7 @@ Best regards,
             <h3 className="text-lg font-semibold">Benchmark Results</h3>
             <div className="flex space-x-4">
               <button
-                onClick={fetchBenchmarkData}
+                onClick={() => fetchBenchmarkData(selectedRegion)}
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
@@ -546,9 +548,7 @@ Best regards,
                 <BarChart
                   width={800}
                   height={300}
-                  data={benchmarkData.filter(result => 
-                    selectedRegion === 'all' || result.region === selectedRegion
-                  )}
+                  data={benchmarkData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
@@ -570,22 +570,20 @@ Best regards,
                     </tr>
                   </thead>
                   <tbody>
-                    {benchmarkData
-                      .filter(result => selectedRegion === 'all' || result.region === selectedRegion)
-                      .map((result, index) => (
-                        <tr key={index} className="border-t">
-                          <td className="px-4 py-2">{result.attribute}</td>
-                          <td className="px-4 py-2 text-right">{result.score.toFixed(1)}%</td>
-                          <td className="px-4 py-2 text-right">{result.responses}</td>
-                        </tr>
-                      ))}
+                    {benchmarkData.map((result, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="px-4 py-2">{result.attribute}</td>
+                        <td className="px-4 py-2 text-right">{result.score.toFixed(1)}%</td>
+                        <td className="px-4 py-2 text-right">{result.responses}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
           ) : (
             <div className="text-center text-gray-500 py-8">
-              No benchmark data available
+              {isLoading ? 'Loading data...' : 'No benchmark data available'}
             </div>
           )}
         </div>

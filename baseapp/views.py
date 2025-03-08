@@ -1214,13 +1214,13 @@ Work Force Compass Admin
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
 def benchmark_results(request, business_id):
-    """Get benchmark results, optionally filtered by region"""
+    """Get benchmark results, properly filtered by region"""
     print(f"Fetching benchmark results for business {business_id}")  # Debug log
     try:
         region = request.GET.get('region', 'all')
         
         # Start with all completed benchmark assessments
-        assessments = AssessmentResponse.objects.filter(
+        assessments_query = AssessmentResponse.objects.filter(
             assessment__business_id=business_id,
             assessment__assessment_type='benchmark',
             assessment__completed=True
@@ -1228,7 +1228,10 @@ def benchmark_results(request, business_id):
         
         # Apply region filter if specified
         if region != 'all':
-            assessments = assessments.filter(assessment__region=region)
+            assessments_query = assessments_query.filter(assessment__region=region)
+        
+        # Execute the query to get filtered assessment responses
+        assessments = assessments_query.select_related('assessment')
         
         # If no completed assessments, return empty results instead of error
         if not assessments.exists():
@@ -1242,7 +1245,6 @@ def benchmark_results(request, business_id):
         
         # Calculate results for each attribute
         results = []
-        print(f"Found {assessments.count()} completed assessments")  # Debug log
         for attribute in attributes:
             total_score = 0
             responses = 0
@@ -1262,6 +1264,7 @@ def benchmark_results(request, business_id):
         
         return JsonResponse({'results': results})
     except Exception as e:
+        print(f"Error in benchmark_results: {e}")  # Debug log
         return JsonResponse({
             'error': str(e),
             'results': []
