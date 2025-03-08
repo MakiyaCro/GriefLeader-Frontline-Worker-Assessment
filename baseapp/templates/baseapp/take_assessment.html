@@ -3,6 +3,15 @@
 {% load crispy_forms_tags %}
 
 {% block content %}
+<!-- Sticky Progress Bar -->
+<div class="progress-container" style="position: fixed; top: 20px; right: 20px; width: 200px; z-index: 1000; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <p class="mb-1 small text-muted">Progress</p>
+    <div class="progress" style="height: 10px;">
+        <div id="assessment-progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+    </div>
+    <p class="mt-1 mb-0 small text-end"><span id="questions-completed">0</span>/<span id="total-questions">0</span> questions</p>
+</div>
+
 <div class="container py-4">
     <h2 class="mb-4">Assessment for {{ assessment.position }}</h2>
     <div class="alert alert-info">
@@ -13,17 +22,34 @@
         {% csrf_token %}
         
         {% for field in form %}
-            <div class="card mb-4">
-                <div class="card-header">
+            <div class="card mb-4 assessment-question" style="border: 1px solid #adb5bd;">
+                <div class="card-header" style="background-color: #f8f9fa; border-bottom: 1px solid #adb5bd;">
                     <h5 class="mb-0">{{ field.label }}</h5>
                 </div>
                 <div class="card-body">
                     {% for choice in field %}
-                        <div class="form-check mb-3 p-3 border rounded">
+                        <div class="form-check mb-3 p-3 border rounded" style="border-color: #6c757d !important; position: relative;">
                             {{ choice.tag }}
-                            <label class="form-check-label ms-2" for="{{ choice.id_for_label }}">
+                            <label class="form-check-label ms-2" for="{{ choice.id_for_label }}" style="display: block; width: 100%; cursor: pointer;">
                                 {{ choice.choice_label }}
                             </label>
+                            <style>
+                                /* Make radio button more visible */
+                                #{{ choice.id_for_label }} {
+                                    width: 1.2em;
+                                    height: 1.2em;
+                                    margin-top: 0.25em;
+                                    border: 1px solid #6c757d;
+                                }
+                                /* Add a highlight effect when option is selected */
+                                #{{ choice.id_for_label }}:checked + label {
+                                    font-weight: 500;
+                                }
+                                #{{ choice.id_for_label }}:checked ~ .form-check {
+                                    border-color: #0d6efd !important;
+                                    background-color: rgba(13, 110, 253, 0.05);
+                                }
+                            </style>
                         </div>
                     {% endfor %}
                     {% if field.errors %}
@@ -40,4 +66,51 @@
         </div>
     </form>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set up progress tracking
+        const questions = document.querySelectorAll('.assessment-question');
+        const totalQuestions = questions.length;
+        const progressBar = document.getElementById('assessment-progress-bar');
+        const questionsCompletedElement = document.getElementById('questions-completed');
+        const totalQuestionsElement = document.getElementById('total-questions');
+        
+        // Initialize total questions count
+        totalQuestionsElement.textContent = totalQuestions;
+        
+        // Function to update progress
+        function updateProgress() {
+            let completed = 0;
+            
+            // Count completed questions (with selected radio buttons)
+            questions.forEach(question => {
+                const radioButtons = question.querySelectorAll('input[type="radio"]');
+                const isAnswered = Array.from(radioButtons).some(radio => radio.checked);
+                if (isAnswered) {
+                    completed++;
+                    question.classList.add('question-answered');
+                } else {
+                    question.classList.remove('question-answered');
+                }
+            });
+            
+            // Update progress display
+            const percentage = totalQuestions > 0 ? Math.round((completed / totalQuestions) * 100) : 0;
+            progressBar.style.width = percentage + '%';
+            progressBar.setAttribute('aria-valuenow', percentage);
+            progressBar.textContent = percentage + '%';
+            questionsCompletedElement.textContent = completed;
+        }
+        
+        // Add event listeners to all radio buttons
+        const radioButtons = document.querySelectorAll('input[type="radio"]');
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', updateProgress);
+        });
+        
+        // Initial progress calculation
+        updateProgress();
+    });
+</script>
 {% endblock %}
