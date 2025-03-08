@@ -14,7 +14,7 @@ from datetime import datetime
 import pandas as pd
 import json
 import csv
-from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser, Manager
+from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser, Manager, EmailTemplate
 from .forms import AssessmentCreationForm, AssessmentResponseForm, BenchmarkBatchForm, PasswordResetForm, SetNewPasswordForm
 from .utils.report_generator import generate_assessment_report
 from django.template.loader import render_to_string
@@ -934,7 +934,7 @@ def attribute_list(request):
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
 def benchmark_emails(request, business_id):
-    """Get all benchmark emails for a business"""
+    """Get all benchmark emails for a business using the email_sent field"""
     try:
         # Get all benchmark assessments for the business
         assessments = Assessment.objects.filter(
@@ -944,14 +944,14 @@ def benchmark_emails(request, business_id):
             'candidate_email',
             'region',
             'completed',
-            'unique_link'
+            'email_sent'  # Use the new field
         )
         
         # Format the data
         emails = [{
             'email': assessment['candidate_email'],
             'region': assessment['region'],
-            'sent': bool(assessment['unique_link']),  # If has link, it was sent
+            'sent': assessment['email_sent'],  # Use our explicit field
             'completed': assessment['completed']
         } for assessment in assessments]
         
@@ -962,13 +962,17 @@ def benchmark_emails(request, business_id):
 @require_http_methods(["POST"])
 @user_passes_test(is_admin)
 def add_benchmark_emails(request, business_id):
-    """Add new benchmark emails"""
+    """Add new benchmark emails with 'sent' explicitly set to false"""
     try:
         data = json.loads(request.body)
         emails = data.get('emails', [])
         
         created_assessments = []
         for email_data in emails:
+            # Skip empty emails
+            if not email_data.get('email') or email_data['email'].strip() == '':
+                continue
+                
             # Check if assessment already exists
             existing = Assessment.objects.filter(
                 business_id=business_id,
@@ -977,23 +981,143 @@ def add_benchmark_emails(request, business_id):
             ).first()
             
             if not existing:
-                # Create new assessment
+                # Create new assessment with email_sent explicitly set to False
                 assessment = Assessment.objects.create(
                     business_id=business_id,
                     assessment_type='benchmark',
                     candidate_email=email_data['email'],
                     candidate_name=email_data['email'].split('@')[0],  # Basic name from email
-                    region=email_data['region'],
+                    region=email_data.get('region', 'Default'),
                     position='Benchmark Assessment',
                     manager_name=request.user.get_full_name() or request.user.username,
                     manager_email=request.user.email,
-                    created_by=request.user
+                    created_by=request.user,
+                    email_sent=False  # Explicitly set to False
                 )
                 created_assessments.append(assessment)
         
         return JsonResponse({
             'message': f'Successfully added {len(created_assessments)} new benchmark emails'
         })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@require_http_methods(["GET", "POST"])
+@user_passes_test(is_admin)
+def benchmark_email_template(request, business_id):
+    """Get or update benchmark email template"""
+    business = get_object_or_404(Business, id=business_id)
+    
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            template_data = data.get('template', {})
+            
+            # Validate template data
+            if not template_data.get('subject') or not template_data.get('body'):
+                return JsonResponse({'error': 'Subject and body are required'}, status=400)
+            
+            # Get or create template
+            template, created = EmailTemplate.objects.update_or_create(
+                business=business,
+                template_type='benchmark',
+                defaults={
+                    'subject': template_data.get('subject'),
+                    'body': template_data.get('body')
+                }
+            )
+            
+            return JsonResponse({'message': 'Template saved successfully'})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    else:
+        # Get template if it exists
+        try:
+            template = EmailTemplate.objects.get(business=business, template_type='benchmark')
+            return JsonResponse({
+                'template': {
+                    'subject': template.subject,
+                    'body': template.body
+                }
+            })
+        except EmailTemplate.DoesNotExist:
+            # Return default template
+            default_template = {
+                'subject': 'Benchmark Assessment for {{business_name}}',
+                'body': """Hello {{candidate_name}},
+
+You have been selected to participate in a benchmark assessment for {{business_name}}.
+
+Please click the following link to complete your assessment:
+{{assessment_url}}
+
+Thank you for your participation.
+
+Best regards,
+{{business_name}} Team"""
+            }
+            return JsonResponse({'template': default_template})
+
+@require_http_methods(["POST"])
+@user_passes_test(is_admin)
+def delete_benchmark_email(request, business_id):
+    """Delete a benchmark email"""
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '')
+        
+        if not email:
+            return JsonResponse({'error': 'Email is required'}, status=400)
+        
+        # Find and delete the assessment
+        assessment = Assessment.objects.filter(
+            business_id=business_id,
+            assessment_type='benchmark',
+            candidate_email=email
+        ).first()
+        
+        if not assessment:
+            return JsonResponse({'error': 'Benchmark email not found'}, status=404)
+        
+        # Delete the assessment (and related response if it exists)
+        assessment.delete()
+        
+        return JsonResponse({'message': 'Benchmark email deleted successfully'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@require_http_methods(["POST"])
+@user_passes_test(is_admin)
+def update_benchmark_email(request, business_id):
+    """Update a benchmark email address or region"""
+    try:
+        data = json.loads(request.body)
+        old_email = data.get('oldEmail', '')
+        new_email = data.get('newEmail', '')
+        region = data.get('region', '')
+        
+        if not old_email or not new_email or not region:
+            return JsonResponse({
+                'error': 'Original email, new email, and region are required'
+            }, status=400)
+        
+        # Find the assessment
+        assessment = Assessment.objects.filter(
+            business_id=business_id,
+            assessment_type='benchmark',
+            candidate_email=old_email
+        ).first()
+        
+        if not assessment:
+            return JsonResponse({'error': 'Benchmark email not found'}, status=404)
+        
+        # Update the assessment
+        assessment.candidate_email = new_email
+        assessment.candidate_name = new_email.split('@')[0]  # Update name based on email
+        assessment.region = region
+        assessment.save()
+        
+        return JsonResponse({'message': 'Benchmark email updated successfully'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -1004,6 +1128,7 @@ def send_benchmark_email(request, business_id):
     try:
         data = json.loads(request.body)
         email = data.get('email')
+        use_template = data.get('useTemplate', False)
         
         # Get the assessment
         assessment = Assessment.objects.get(
@@ -1012,12 +1137,17 @@ def send_benchmark_email(request, business_id):
             candidate_email=email
         )
         
-        # Generate new unique link with our improved function
+        # Get the business
+        business = get_object_or_404(Business, id=business_id)
+        
+        # Generate new unique link
         assessment.unique_link = generate_secure_token(
             entity_id=assessment.id,
             token_type='benchmark',
             length=16
         )
+        # Set email_sent to True
+        assessment.email_sent = True
         assessment.save()
         
         # Generate the assessment URL
@@ -1025,12 +1155,12 @@ def send_benchmark_email(request, business_id):
             reverse('baseapp:take_assessment', args=[assessment.unique_link])
         )
         
-        # Send email
-        subject = f'Benchmark Assessment for {assessment.business.name}'
+        # Email sending logic...
+        subject = f'Benchmark Assessment for {business.name}'
         message = f"""
 Hello,
 
-You have been selected to participate in a benchmark assessment for {assessment.business.name}.
+You have been selected to participate in a benchmark assessment for {business.name}.
 
 Please click the following link to complete your assessment:
 {assessment_url}
@@ -1041,6 +1171,28 @@ Best regards,
 Work Force Compass Admin
         """
         
+        # If using custom template, replace with template
+        if use_template:
+            try:
+                template = EmailTemplate.objects.get(business=business, template_type='benchmark')
+                
+                # Replace variables in subject
+                subject = template.subject
+                subject = subject.replace("{{business_name}}", business.name)
+                subject = subject.replace("{{candidate_name}}", assessment.candidate_name)
+                
+                # Replace variables in body
+                message = template.body
+                message = message.replace("{{business_name}}", business.name)
+                message = message.replace("{{candidate_name}}", assessment.candidate_name)
+                message = message.replace("{{assessment_url}}", assessment_url)
+                message = message.replace("{{region}}", assessment.region)
+                
+            except EmailTemplate.DoesNotExist:
+                # Use default if no template exists
+                pass
+        
+        # Send email
         send_mail(
             subject=subject,
             message=message,

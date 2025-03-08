@@ -142,6 +142,7 @@ class Assessment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+    email_sent = models.BooleanField(default=False)
 
     managers = models.ManyToManyField(
         Manager,
@@ -213,3 +214,22 @@ class QuestionResponse(models.Model):
         choice = "A" if self.chose_a else "B"
         return f"Response {choice} for {self.question_pair}"
     
+class EmailTemplate(models.Model):
+    """Stores customized email templates for different purposes"""
+    TEMPLATE_TYPE_CHOICES = [
+        ('benchmark', 'Benchmark Assessment'),
+        ('standard', 'Standard Assessment'),
+    ]
+    
+    business = models.ForeignKey(Business, on_delete=models.CASCADE)
+    template_type = models.CharField(max_length=20, choices=TEMPLATE_TYPE_CHOICES)
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['business', 'template_type']
+        
+    def __str__(self):
+        return f"{self.business.name} - {self.get_template_type_display()}"

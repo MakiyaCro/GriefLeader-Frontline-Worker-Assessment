@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import Papa from 'papaparse';
-import { Send, RefreshCw } from 'lucide-react';
+import { Send, RefreshCw, Edit, Trash2, Mail } from 'lucide-react';
 
 const BenchmarkSection = ({ businessDetails }) => {
   const [activeTab, setActiveTab] = useState('setup');
@@ -13,6 +13,24 @@ const BenchmarkSection = ({ businessDetails }) => {
   const [error, setError] = useState(null);
   const [regions, setRegions] = useState([]);
   const [uploadError, setUploadError] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [emailTemplate, setEmailTemplate] = useState({
+    subject: 'Benchmark Assessment for {{business_name}}',
+    body: `Hello {{candidate_name}},
+
+You have been selected to participate in a benchmark assessment for {{business_name}}.
+
+Please click the following link to complete your assessment:
+{{assessment_url}}
+
+Thank you for your participation.
+
+Best regards,
+{{business_name}} Team`
+  });
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   // Get CSRF token
   const getCsrfToken = () => {
@@ -25,8 +43,48 @@ const BenchmarkSection = ({ businessDetails }) => {
     if (businessDetails?.business?.id) {
       fetchBenchmarkData();
       fetchBenchmarkEmails();
+      fetchEmailTemplate();
     }
   }, [businessDetails?.business?.id]);
+
+  // Fetch email template
+  const fetchEmailTemplate = async () => {
+    try {
+      const response = await fetch(`/api/businesses/${businessDetails.business.id}/benchmark-email-template/`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.template) {
+          setEmailTemplate(data.template);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch email template:", error);
+    }
+  };
+
+  // Save email template
+  const saveEmailTemplate = async () => {
+    try {
+      const response = await fetch(`/api/businesses/${businessDetails.business.id}/benchmark-email-template/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({ template: emailTemplate })
+      });
+
+      if (response.ok) {
+        setTemplateSaved(true);
+        setTimeout(() => setTemplateSaved(false), 3000);
+      } else {
+        throw new Error('Failed to save email template');
+      }
+    } catch (error) {
+      setError(error.message);
+    }
+  };
 
   // Fetch benchmark data
   const fetchBenchmarkData = async () => {
@@ -71,7 +129,7 @@ const BenchmarkSection = ({ businessDetails }) => {
     }
   };
 
-  // Handle CSV upload
+  // Handle CSV upload - Modified to default to not sent
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -80,29 +138,50 @@ const BenchmarkSection = ({ businessDetails }) => {
       const text = await file.text();
       Papa.parse(text, {
         header: true,
+        skipEmptyLines: true, // Skip empty lines
         complete: async (results) => {
-          const emailData = results.data.map(row => ({
-            email: row.email,
-            region: row.region,
-            sent: false,
+          // Filter out rows without emails
+          const validRows = results.data.filter(row => row.email && row.email.trim() !== '');
+          
+          if (validRows.length === 0) {
+            setError('No valid email data found in CSV');
+            return;
+          }
+          
+          // Format data for backend - explicitly set sent to false
+          const emailData = validRows.map(row => ({
+            email: row.email.trim(),
+            region: (row.region && row.region.trim()) || 'Default',
+            sent: false, // Explicitly set to false
             completed: false
           }));
           
-          const response = await fetch(`/api/businesses/${businessDetails.business.id}/add-benchmark-emails/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': getCsrfToken(),
-            },
-            body: JSON.stringify({ emails: emailData })
-          });
+          setIsLoading(true);
+          try {
+            const response = await fetch(`/api/businesses/${businessDetails.business.id}/add-benchmark-emails/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+              },
+              body: JSON.stringify({ emails: emailData })
+            });
 
-          if (!response.ok) throw new Error('Failed to upload benchmark emails');
-          
-          await fetchBenchmarkEmails();
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Failed to upload benchmark emails');
+            }
+            
+            // Successfully added emails
+            await fetchBenchmarkEmails();
+          } catch (error) {
+            setError(error.message);
+          } finally {
+            setIsLoading(false);
+          }
         },
         error: (error) => {
-          throw new Error(`CSV parsing error: ${error}`);
+          setError(`CSV parsing error: ${error}`);
         }
       });
     } catch (error) {
@@ -149,11 +228,67 @@ const BenchmarkSection = ({ businessDetails }) => {
           'Content-Type': 'application/json',
           'X-CSRFToken': getCsrfToken(),
         },
-        body: JSON.stringify({ email: email.email })
+        body: JSON.stringify({ 
+          email: email.email,
+          useTemplate: true // Added to use custom template
+        })
       });
 
       if (!response.ok) throw new Error('Failed to send email');
       
+      await fetchBenchmarkEmails();
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  // Delete benchmark email
+  const handleDeleteEmail = async () => {
+    if (!currentEmail) return;
+    
+    try {
+      const response = await fetch(`/api/businesses/${businessDetails.business.id}/delete-benchmark-email/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({ email: currentEmail.email })
+      });
+
+      if (!response.ok) throw new Error('Failed to delete benchmark email');
+      
+      setShowDeleteConfirmation(false);
+      setCurrentEmail(null);
+      await fetchBenchmarkEmails();
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  // Edit benchmark email
+  const handleEditEmail = async (e) => {
+    e.preventDefault();
+    if (!currentEmail) return;
+    
+    try {
+      const response = await fetch(`/api/businesses/${businessDetails.business.id}/update-benchmark-email/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({
+          oldEmail: currentEmail.originalEmail,
+          newEmail: currentEmail.email,
+          region: currentEmail.region
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to update benchmark email');
+      
+      setShowEditModal(false);
+      setCurrentEmail(null);
       await fetchBenchmarkEmails();
     } catch (error) {
       setError(error.message);
@@ -171,6 +306,14 @@ const BenchmarkSection = ({ businessDetails }) => {
           onClick={() => setActiveTab('setup')}
         >
           Benchmark Setup
+        </button>
+        <button
+          className={`px-4 py-2 mr-2 ${activeTab === 'template' 
+            ? 'border-b-2 border-blue-500 text-blue-500' 
+            : 'text-gray-500'}`}
+          onClick={() => setActiveTab('template')}
+        >
+          Email Template
         </button>
         <button
           className={`px-4 py-2 ${activeTab === 'results' 
@@ -240,7 +383,7 @@ const BenchmarkSection = ({ businessDetails }) => {
                     <th className="px-4 py-2 text-left">Email</th>
                     <th className="px-4 py-2 text-left">Region</th>
                     <th className="px-4 py-2 text-center">Status</th>
-                    <th className="px-4 py-2 text-right">Action</th>
+                    <th className="px-4 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -264,28 +407,109 @@ const BenchmarkSection = ({ businessDetails }) => {
                         </span>
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <button
-                          onClick={() => handleSendEmail(email)}
-                          className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
-                          disabled={email.completed}
-                        >
-                          {email.sent ? (
-                            <>
-                              <RefreshCw className="w-4 h-4 mr-1" />
-                              Resend
-                            </>
-                          ) : (
-                            <>
-                              <Send className="w-4 h-4 mr-1" />
-                              Send
-                            </>
+                        <div className="flex justify-end space-x-2">
+                          {!email.completed && (
+                            <button
+                              onClick={() => handleSendEmail(email)}
+                              className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+                            >
+                              {email.sent ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 mr-1" />
+                                  Resend
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="w-4 h-4 mr-1" />
+                                  Send
+                                </>
+                              )}
+                            </button>
                           )}
-                        </button>
+                          <button
+                            onClick={() => {
+                              setCurrentEmail({
+                                originalEmail: email.email,
+                                email: email.email,
+                                region: email.region
+                              });
+                              setShowEditModal(true);
+                            }}
+                            className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-blue-600 hover:bg-blue-100"
+                            disabled={email.completed}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCurrentEmail(email);
+                              setShowDeleteConfirmation(true);
+                            }}
+                            className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-red-600 hover:bg-red-100"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'template' ? (
+        <div>
+          {/* Email Template Editor */}
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Benchmark Email Template</h3>
+              <button
+                onClick={saveEmailTemplate}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Save Template
+              </button>
+            </div>
+            
+            {templateSaved && (
+              <div className="mb-4 p-2 bg-green-100 text-green-800 rounded">
+                Template saved successfully
+              </div>
+            )}
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Subject
+              </label>
+              <input
+                type="text"
+                value={emailTemplate.subject}
+                onChange={(e) => setEmailTemplate({...emailTemplate, subject: e.target.value})}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Body
+              </label>
+              <textarea
+                value={emailTemplate.body}
+                onChange={(e) => setEmailTemplate({...emailTemplate, body: e.target.value})}
+                className="w-full p-2 border rounded h-64 font-mono"
+              />
+            </div>
+            
+            <div className="bg-gray-50 p-4 rounded">
+              <h4 className="text-sm font-semibold mb-2">Available Template Variables:</h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li><code>{'{{business_name}}'}</code> - Name of the business</li>
+                <li><code>{'{{assessment_url}}'}</code> - The unique assessment URL</li>
+                <li><code>{'{{candidate_name}}'}</code> - The recipient's name (derived from email)</li>
+                <li><code>{'{{region}}'}</code> - The recipient's region</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -364,6 +588,88 @@ const BenchmarkSection = ({ businessDetails }) => {
               No benchmark data available
             </div>
           )}
+        </div>
+      )}
+
+      {/* Edit Benchmark Email Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-96">
+            <h2 className="text-2xl font-bold mb-6">Edit Benchmark Email</h2>
+            <form onSubmit={handleEditEmail} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={currentEmail.email}
+                  onChange={(e) => setCurrentEmail({...currentEmail, email: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Region
+                </label>
+                <input
+                  type="text"
+                  value={currentEmail.region}
+                  onChange={(e) => setCurrentEmail({...currentEmail, region: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Update
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md">
+            <h2 className="text-xl font-bold text-red-600 mb-4">Confirm Deletion</h2>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete the benchmark for {currentEmail.email}? 
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirmation(false);
+                  setCurrentEmail(null);
+                }}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteEmail}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

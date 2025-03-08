@@ -43,6 +43,9 @@ urlpatterns = [
     #--benchmark
     path('api/businesses/<int:business_id>/benchmark-emails/', views.benchmark_emails, name='benchmark-emails'),
     path('api/businesses/<int:business_id>/add-benchmark-emails/',views.add_benchmark_emails,name='add-benchmark-emails'),
+    path('api/businesses/<int:business_id>/benchmark-email-template/', views.benchmark_email_template, name='benchmark-email-template'),
+    path('api/businesses/<int:business_id>/delete-benchmark-email/', views.delete_benchmark_email, name='delete-benchmark-email'),
+    path('api/businesses/<int:business_id>/update-benchmark-email/', views.update_benchmark_email, name='update-benchmark-email'),
     path('api/businesses/<int:business_id>/send-benchmark-email/',views.send_benchmark_email,name='send-benchmark-email'),
     path('api/businesses/<int:business_id>/benchmark-results/',views.benchmark_results,name='benchmark-results'),
 
