@@ -291,29 +291,31 @@ def take_assessment(request, unique_link):
                 assessment.completed_at = timezone.now()
                 assessment.save()
                 
-                # Initialize recipient_emails outside try block to ensure it exists in all code paths
-                recipient_emails = []
-                
-                try:
-                    logger.info(f"Starting PDF generation for assessment ID: {assessment.id}")
-                    # Generate PDF report
-                    pdf_path = generate_assessment_report(assessment_response)
-                    logger.info(f"PDF generated successfully at {pdf_path}")
+                # Only process PDF and send emails for standard assessments
+                if assessment.assessment_type == 'standard':
+                    # Initialize recipient_emails outside try block to ensure it exists in all code paths
+                    recipient_emails = []
                     
-                    # Add all associated managers
-                    if assessment.managers.exists():
-                        manager_emails = list(assessment.managers.filter(active=True).values_list('email', flat=True))
-                        recipient_emails.extend(manager_emails)
-                        logger.info(f"Found {len(manager_emails)} associated managers")
-                    
-                    # If no associated managers, fall back to the specified manager email
-                    if not recipient_emails:
-                        recipient_emails = [assessment.manager_email]
-                        logger.info(f"No managers associated, using fallback email: {assessment.manager_email}")
-                    
-                    # Prepare email content
-                    subject = f'Assessment Report - {assessment.candidate_name} - {assessment.position}'
-                    message = f'''Dear Manager,
+                    try:
+                        logger.info(f"Starting PDF generation for assessment ID: {assessment.id}")
+                        # Generate PDF report
+                        pdf_path = generate_assessment_report(assessment_response)
+                        logger.info(f"PDF generated successfully at {pdf_path}")
+                        
+                        # Add all associated managers
+                        if assessment.managers.exists():
+                            manager_emails = list(assessment.managers.filter(active=True).values_list('email', flat=True))
+                            recipient_emails.extend(manager_emails)
+                            logger.info(f"Found {len(manager_emails)} associated managers")
+                        
+                        # If no associated managers, fall back to the specified manager email
+                        if not recipient_emails:
+                            recipient_emails = [assessment.manager_email]
+                            logger.info(f"No managers associated, using fallback email: {assessment.manager_email}")
+                        
+                        # Prepare email content
+                        subject = f'Assessment Report - {assessment.candidate_name} - {assessment.position}'
+                        message = f'''Dear Manager,
 
 The assessment for {assessment.candidate_name} for the position of {assessment.position} has been completed.
 
@@ -330,65 +332,65 @@ This is an automated message. Please do not reply to this email.
 Best regards,
 {assessment.manager_name}'''
 
-                    logger.info(f"Preparing to send email for assessment ID: {assessment.id} to {len(recipient_emails)} recipients: {', '.join(recipient_emails)}")
+                        logger.info(f"Preparing to send email for assessment ID: {assessment.id} to {len(recipient_emails)} recipients: {', '.join(recipient_emails)}")
+                        
+                        # Verify PDF exists and has content
+                        if os.path.exists(pdf_path):
+                            logger.info(f"PDF exists at {pdf_path}, size: {os.path.getsize(pdf_path)} bytes")
+                        else:
+                            logger.error(f"PDF file not found at {pdf_path}")
+                            raise FileNotFoundError(f"Generated PDF not found at {pdf_path}")
+                        
+                        # Attach the PDF with a clean filename
+                        clean_name = "".join(c for c in assessment.candidate_name if c.isalnum() or c in (' ', '-', '_')).strip()
+                        filename = f'Assessment_Report_{clean_name}_{timezone.now().strftime("%Y%m%d")}.pdf'
+                        
+                        # Create and send email with PDF attachment
+                        email = EmailMessage(
+                            subject=subject,
+                            body=message,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            to=recipient_emails,  # Send to all recipients at once
+                            reply_to=[settings.DEFAULT_FROM_EMAIL]
+                        )
+                        
+                        with open(pdf_path, 'rb') as f:
+                            email.attach(filename, f.read(), 'application/pdf')
+                        
+                        # Send the email
+                        logger.info(f"Sending email to {len(recipient_emails)} recipients: {', '.join(recipient_emails)}")
+                        email.send(fail_silently=False)
+                        logger.info(f"Email sent successfully to {len(recipient_emails)} recipients")
+                        
+                        # Clean up the PDF file after sending
+                        if os.path.exists(pdf_path):
+                            os.remove(pdf_path)
+                            logger.info(f"Cleaned up PDF file at {pdf_path}")
+                        
+                    except ImportError as e:
+                        logger.error(f"WeasyPrint import error: {str(e)}")
+                        logger.error("Please check if WeasyPrint and its dependencies are installed correctly")
+                        messages.error(request, 'There was an error generating the assessment report. The system administrator has been notified.')
                     
-                    # Verify PDF exists and has content
-                    if os.path.exists(pdf_path):
-                        logger.info(f"PDF exists at {pdf_path}, size: {os.path.getsize(pdf_path)} bytes")
-                    else:
-                        logger.error(f"PDF file not found at {pdf_path}")
-                        raise FileNotFoundError(f"Generated PDF not found at {pdf_path}")
+                    except OSError as e:
+                        logger.error(f"OS error during PDF generation: {str(e)}")
+                        logger.error("This might be due to file permission issues or missing system dependencies")
+                        messages.error(request, 'There was an error processing the assessment report. The system administrator has been notified.')
                     
-                    # Attach the PDF with a clean filename
-                    clean_name = "".join(c for c in assessment.candidate_name if c.isalnum() or c in (' ', '-', '_')).strip()
-                    filename = f'Assessment_Report_{clean_name}_{timezone.now().strftime("%Y%m%d")}.pdf'
-                    
-                    # Create and send email with PDF attachment
-                    email = EmailMessage(
-                        subject=subject,
-                        body=message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=recipient_emails,  # Send to all recipients at once
-                        reply_to=[settings.DEFAULT_FROM_EMAIL]
-                    )
-                    
-                    with open(pdf_path, 'rb') as f:
-                        email.attach(filename, f.read(), 'application/pdf')
-                    
-                    # Send the email
-                    logger.info(f"Sending email to {len(recipient_emails)} recipients: {', '.join(recipient_emails)}")
-                    email.send(fail_silently=False)
-                    logger.info(f"Email sent successfully to {len(recipient_emails)} recipients")
-                    
-                    # Clean up the PDF file after sending
-                    if os.path.exists(pdf_path):
-                        os.remove(pdf_path)
-                        logger.info(f"Cleaned up PDF file at {pdf_path}")
-                    
-                except ImportError as e:
-                    logger.error(f"WeasyPrint import error: {str(e)}")
-                    logger.error("Please check if WeasyPrint and its dependencies are installed correctly")
-                    messages.error(request, 'There was an error generating the assessment report. The system administrator has been notified.')
-                
-                except OSError as e:
-                    logger.error(f"OS error during PDF generation: {str(e)}")
-                    logger.error("This might be due to file permission issues or missing system dependencies")
-                    messages.error(request, 'There was an error processing the assessment report. The system administrator has been notified.')
-                
-                except Exception as e:
-                    # Log the error with more details
-                    logger.error(f"Failed to generate/send assessment report: {str(e)}")
-                    logger.error(f"Assessment ID: {assessment.id}")
-                    logger.error(f"Manager Email(s): {', '.join(recipient_emails)}")
-                    logger.error(f"Email settings: FROM_EMAIL={settings.DEFAULT_FROM_EMAIL}")
-                    
-                    # Log email configuration for debugging
-                    logger.debug(f"Email Backend: {settings.EMAIL_BACKEND}")
-                    logger.debug(f"Email Host: {settings.EMAIL_HOST}")
-                    logger.debug(f"Email Port: {settings.EMAIL_PORT}")
-                    logger.debug(f"Email Use TLS: {settings.EMAIL_USE_TLS}")
-                    
-                    messages.error(request, 'There was an error sending the assessment report. The system administrator has been notified.')
+                    except Exception as e:
+                        # Log the error with more details
+                        logger.error(f"Failed to generate/send assessment report: {str(e)}")
+                        logger.error(f"Assessment ID: {assessment.id}")
+                        logger.error(f"Manager Email(s): {', '.join(recipient_emails)}")
+                        logger.error(f"Email settings: FROM_EMAIL={settings.DEFAULT_FROM_EMAIL}")
+                        
+                        # Log email configuration for debugging
+                        logger.debug(f"Email Backend: {settings.EMAIL_BACKEND}")
+                        logger.debug(f"Email Host: {settings.EMAIL_HOST}")
+                        logger.debug(f"Email Port: {settings.EMAIL_PORT}")
+                        logger.debug(f"Email Use TLS: {settings.EMAIL_USE_TLS}")
+                        
+                        messages.error(request, 'There was an error sending the assessment report. The system administrator has been notified.')
                 
                 # Redirect to thank you page regardless of email success
                 return redirect('baseapp:thank_you')
