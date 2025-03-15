@@ -82,6 +82,26 @@ const AssessmentSection = ({ businessDetails }) => {
     if (!response.ok) throw new Error('Failed to fetch managers');
     const data = await response.json();
     setManagers(data.managers);
+    
+    // Auto-select default managers when initializing newAssessment
+    const defaultManagers = data.managers.filter(m => m.is_default).map(m => m.id);
+    if (defaultManagers.length > 0) {
+      setNewAssessment(prev => ({
+        ...prev,
+        manager_ids: defaultManagers
+      }));
+      
+      // If there's exactly one default manager, set them as primary too
+      if (defaultManagers.length === 1) {
+        const defaultManager = data.managers.find(m => m.is_default);
+        setNewAssessment(prev => ({
+          ...prev,
+          primary_manager_id: defaultManager.id,
+          manager_name: defaultManager.name,
+          manager_email: defaultManager.email
+        }));
+      }
+    }
   } catch (err) {
     console.error('Error fetching managers:', err);
   }
@@ -583,6 +603,12 @@ const AssessmentSection = ({ businessDetails }) => {
                             checked={editAssessment.manager_ids.includes(manager.id)}
                             onChange={(e) => {
                               const isChecked = e.target.checked;
+                              
+                              // If this is a default manager, it can't be unchecked
+                              if (!isChecked && manager.is_default) {
+                                return;
+                              }
+                              
                               let updatedManagerIds = [...editAssessment.manager_ids];
                               
                               if (isChecked) {
@@ -609,13 +635,14 @@ const AssessmentSection = ({ businessDetails }) => {
                               });
                             }}
                             className="h-5 w-5 mr-2 rounded border-gray-300 mt-1"
+                            disabled={manager.is_default}
                           />
-                          <label htmlFor={`edit-manager-${manager.id}`} className="flex-1 cursor-pointer">
+                          <label htmlFor={`edit-manager-${manager.id}`} className={`flex-1 cursor-pointer ${manager.is_default ? 'bg-blue-50 rounded p-1' : ''}`}>
                             <div className="font-medium">
                               {manager.name}
-                              {manager.is_primary && (
-                                <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
-                                  Default Primary
+                              {manager.is_default && (
+                                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                  Default
                                 </span>
                               )}
                               {editAssessment.primary_manager_id === manager.id && (
@@ -676,7 +703,7 @@ const AssessmentSection = ({ businessDetails }) => {
                         .filter(manager => editAssessment.manager_ids.includes(manager.id))
                         .map(manager => (
                           <option key={manager.id} value={manager.id}>
-                            {manager.name} {manager.is_primary ? '(Default Primary)' : ''}
+                            {manager.name} {manager.is_default ? '(Default Manager)' : ''}
                           </option>
                         ))}
                     </select>
@@ -968,18 +995,21 @@ const AssessmentSection = ({ businessDetails }) => {
                               if (isChecked) {
                                 updatedManagerIds.push(manager.id);
                               } else {
-                                updatedManagerIds = updatedManagerIds.filter(id => id !== manager.id);
-                                
-                                // If we unchecked the primary manager, reset primary_manager_id
-                                if (newAssessment.primary_manager_id === manager.id) {
-                                  setNewAssessment({
-                                    ...newAssessment,
-                                    manager_ids: updatedManagerIds,
-                                    primary_manager_id: '',
-                                    // Only reset these if this was the source of the contact info
-                                    ...(newAssessment.manager_name === manager.name ? 
-                                      { manager_name: '', manager_email: '' } : {})
-                                  });
+                                if (!manager.is_default) {
+                                  updatedManagerIds = updatedManagerIds.filter(id => id !== manager.id);
+                                  // If we unchecked the primary manager, reset primary_manager_id
+                                  if (newAssessment.primary_manager_id === manager.id) {
+                                    setNewAssessment({
+                                      ...newAssessment,
+                                      manager_ids: updatedManagerIds,
+                                      primary_manager_id: '',
+                                      ...(newAssessment.manager_name === manager.name ?
+                                        { manager_name: '', manager_email: '' } : {})
+                                    });
+                                    return;
+                                  }
+                                } else {
+
                                   return;
                                 }
                               }
@@ -990,6 +1020,7 @@ const AssessmentSection = ({ businessDetails }) => {
                               });
                             }}
                             className="h-5 w-5 mr-2 rounded border-gray-300 mt-1"
+                            disabled={manager.is_default}
                           />
                           <label htmlFor={`manager-${manager.id}`} className="flex-1 cursor-pointer manager-details">
                             <div className="manager-name">

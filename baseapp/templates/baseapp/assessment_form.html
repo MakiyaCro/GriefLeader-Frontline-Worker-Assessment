@@ -1,26 +1,206 @@
-<!-- baseapp/templates/baseapp/assessment_form.html -->
 {% extends 'baseapp/base.html' %}
 {% load crispy_forms_tags %}
 
 {% block content %}
 <div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title mb-0">Create New Assessment</h3>
-                </div>
-                <div class="card-body">
-                    <form method="post" class="needs-validation" novalidate>
-                        {% csrf_token %}
-                        {{ form|crispy }}
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">Create Assessment</button>
-                        </div>
-                    </form>
-                </div>
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Create New Assessment</h2>
+        <a href="{% url 'baseapp:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Messages/Alerts -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Form Card -->
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <form method="post">
+                {% csrf_token %}
+
+                <!-- Candidate Information Section -->
+                <h4 class="mb-3 pb-2 border-bottom">Candidate Information</h4>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        {{ form.candidate_name|as_crispy_field }}
+                    </div>
+                
+                <!-- Form Actions -->
+                <div class="d-flex justify-content-end">
+                    <a href="{% url 'baseapp:dashboard' %}" class="btn btn-outline-secondary me-2">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Create Assessment</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<style>
+.manager-selection-area {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Make the default manager rows have a light blue background */
+.form-check input:disabled ~ label {
+    background-color: rgba(13, 110, 253, 0.05);
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    margin: -0.25rem -0.5rem;
+}
+</style>
+
+<script>
+// Auto-update the primary manager dropdown when checkboxes change
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[name="{{ form.selected_managers.name }}"]');
+    const primarySelect = document.getElementById('{{ form.primary_manager.id_for_label }}');
+    
+    // Update available options in primary manager dropdown based on selected checkboxes
+    function updatePrimaryOptions() {
+        // Get all selected manager IDs
+        const selectedIds = Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+        
+        // For each option in the primary dropdown
+        Array.from(primarySelect.options).forEach(option => {
+            if (option.value) { // Skip the empty/placeholder option
+                // Disable options that aren't in selected managers
+                option.disabled = !selectedIds.includes(option.value);
+            }
+        });
+        
+        // If the currently selected primary manager is disabled, reset selection
+        if (primarySelect.selectedIndex > 0 && 
+            primarySelect.options[primarySelect.selectedIndex].disabled) {
+            primarySelect.selectedIndex = 0;
+        }
+    }
+    
+    // Add event listeners to all checkboxes
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updatePrimaryOptions);
+    });
+    
+    // Initialize on page load
+    updatePrimaryOptions();
+});
+</script>
 {% endblock %}
+    <div class="col-md-6">
+                        {{ form.candidate_email|as_crispy_field }}
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        {{ form.position|as_crispy_field }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.region|as_crispy_field }}
+                    </div>
+                </div>
+
+                <!-- Manager Selection Section -->
+                <h4 class="mb-3 pb-2 border-bottom">Manager Selection</h4>
+                
+                <!-- Manager Selection Info -->
+                <div class="alert alert-info mb-4">
+                    <h5 class="mb-2"><i class="bi bi-info-circle me-2"></i>About Manager Selection</h5>
+                    <ul class="mb-0">
+                        <li><strong>Default managers</strong> (marked with a badge) are automatically selected and will receive all assessment notifications.</li>
+                        <li>Default managers cannot be deselected.</li>
+                        <li>If your email matches a manager's email, you'll be automatically set as the primary manager.</li>
+                    </ul>
+                </div>
+                
+                <!-- Selected Managers Field -->
+                <div class="mb-4">
+                    <label for="{{ form.selected_managers.id_for_label }}" class="form-label">
+                        {{ form.selected_managers.label }}
+                        {% if form.selected_managers.field.required %}<span class="text-danger">*</span>{% endif %}
+                    </label>
+                    
+                    <div class="border rounded p-3 manager-selection-area">
+                        {% for choice in form.selected_managers.field.choices %}
+                            <div class="form-check mb-2">
+                                <input 
+                                    type="checkbox" 
+                                    name="{{ form.selected_managers.name }}" 
+                                    value="{{ choice.0 }}" 
+                                    id="id_{{ form.selected_managers.name }}_{{ forloop.counter0 }}" 
+                                    class="form-check-input"
+                                    {% if choice.0 in form.selected_managers.value %}checked{% endif %}
+                                    {% for manager in managers %}
+                                        {% if manager.id == choice.0 and manager.is_default %}
+                                            disabled
+                                        {% endif %}
+                                    {% endfor %}
+                                >
+                                <label class="form-check-label d-flex justify-content-between w-100" for="id_{{ form.selected_managers.name }}_{{ forloop.counter0 }}">
+                                    <div>
+                                        {{ choice.1 }}
+                                        {% for manager in managers %}
+                                            {% if manager.id == choice.0 %}
+                                                {% if manager.is_default %}
+                                                    <span class="badge bg-primary ms-2">Default</span>
+                                                {% endif %}
+                                                {% if manager.email == request.user.email %}
+                                                    <span class="badge bg-info ms-2">Your Email</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    {% for manager in managers %}
+                                        {% if manager.id == choice.0 %}
+                                            <small class="text-muted">{{ manager.email }}</small>
+                                        {% endif %}
+                                    {% endfor %}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if form.selected_managers.help_text %}
+                        <div class="form-text">{{ form.selected_managers.help_text }}</div>
+                    {% endif %}
+                    
+                    {% if form.selected_managers.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.selected_managers.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Primary Manager Field -->
+                <div class="mb-4">
+                    <label for="{{ form.primary_manager.id_for_label }}" class="form-label">
+                        {{ form.primary_manager.label }}
+                        {% if form.primary_manager.field.required %}<span class="text-danger">*</span>{% endif %}
+                    </label>
+                    
+                    {{ form.primary_manager }}
+                    
+                    {% if form.primary_manager.help_text %}
+                        <div class="form-text">{{ form.primary_manager.help_text }}</div>
+                    {% endif %}
+                    
+                    {% if form.primary_manager.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.primary_manager.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>

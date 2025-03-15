@@ -24,6 +24,18 @@
         {% endfor %}
     {% endif %}
 
+    <!-- Help Alert for Manager Selection -->
+    <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+        <h5 class="mb-2"><i class="bi bi-info-circle me-2"></i>Manager Selection Information</h5>
+        <p>When creating a new assessment:</p>
+        <ul>
+            <li><strong>Default managers</strong> are automatically selected and will receive notifications for all completed assessments.</li>
+            <li>If your email matches a manager's email, you'll be automatically set as the primary manager.</li>
+            <li>You can still change these selections when creating an assessment.</li>
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
     <!-- Assessments Table -->
     {% if assessments %}
         <div class="card shadow-sm">

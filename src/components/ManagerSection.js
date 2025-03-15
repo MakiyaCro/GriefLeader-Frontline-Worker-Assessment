@@ -10,12 +10,14 @@ const ManagerSection = ({ businessDetails }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newManager, setNewManager] = useState({
     name: '',
-    email: ''
+    email: '',
+    is_default: false
   });
   const [editManager, setEditManager] = useState({
     id: null,
     name: '',
-    email: ''
+    email: '',
+    is_default: false
   });
   const [selectedManager, setSelectedManager] = useState(null);
 
@@ -49,38 +51,33 @@ const ManagerSection = ({ businessDetails }) => {
 
   const handleAddManager = async (e) => {
     e.preventDefault();
-      try {
-        console.log("alpha")
-        const response = await fetch(`/api/businesses/${businessDetails.business.id}/managers/`, {
+    try {
+      const response = await fetch(`/api/businesses/${businessDetails.business.id}/managers/`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken(),
-            },
-        
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
         body: JSON.stringify(newManager)
-        });
-        console.log("beta")
+      });
 
-        if (!response.ok) {
+      if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add manager');
-        }
+      }
 
-        const data = await response.json();
-        console.log('Server response:', data);  // Add this line for debugging
-
-        await fetchManagers();
-        
-        // Reset form and close modal
-        setNewManager({
+      await fetchManagers();
+      
+      // Reset form and close modal
+      setNewManager({
         name: '',
-        email: ''
-        });
-        setShowAddModal(false);
+        email: '',
+        is_default: false
+      });
+      setShowAddModal(false);
     } catch (err) {
-        console.error('Error adding manager:', err);  // Add this line for debugging
-        setError(err.message);
+      console.error('Error adding manager:', err);
+      setError(err.message);
     }
   };
 
@@ -95,7 +92,8 @@ const ManagerSection = ({ businessDetails }) => {
         },
         body: JSON.stringify({
           name: editManager.name,
-          email: editManager.email
+          email: editManager.email,
+          is_default: editManager.is_default
         })
       });
 
@@ -157,6 +155,9 @@ const ManagerSection = ({ businessDetails }) => {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Email
                 </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Default
+                </th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -173,13 +174,23 @@ const ManagerSection = ({ businessDetails }) => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500">{manager.email}</div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">
+                      {manager.is_default ? 
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Default
+                        </span> : 
+                        '-'}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => {
                         setEditManager({
                           id: manager.id,
                           name: manager.name,
-                          email: manager.email
+                          email: manager.email,
+                          is_default: manager.is_default || false
                         });
                         setShowEditModal(true);
                       }}
@@ -216,7 +227,7 @@ const ManagerSection = ({ businessDetails }) => {
             <form onSubmit={handleAddManager} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
+                  Name Test
                 </label>
                 <input
                   type="text"
@@ -237,6 +248,18 @@ const ManagerSection = ({ businessDetails }) => {
                   className="w-full p-2 border rounded"
                   required
                 />
+              </div>
+              <div className="flex items-center">
+                <input
+                  id="is_default"
+                  type="checkbox"
+                  checked={newManager.is_default}
+                  onChange={(e) => setNewManager({...newManager, is_default: e.target.checked})}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="is_default" className="ml-2 block text-sm text-gray-900">
+                  Default Manager (automatically receives all assessment notifications)
+                </label>
               </div>
               <div className="flex justify-end space-x-4 pt-4">
                 <button
@@ -287,6 +310,18 @@ const ManagerSection = ({ businessDetails }) => {
                   className="w-full p-2 border rounded"
                   required
                 />
+              </div>
+              <div className="flex items-center">
+                <input
+                  id="edit_is_default"
+                  type="checkbox"
+                  checked={editManager.is_default}
+                  onChange={(e) => setEditManager({...editManager, is_default: e.target.checked})}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="edit_is_default" className="ml-2 block text-sm text-gray-900">
+                  Default Manager (automatically receives all assessment notifications)
+                </label>
               </div>
               <div className="flex justify-end space-x-4 pt-4">
                 <button

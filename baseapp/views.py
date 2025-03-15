@@ -1330,6 +1330,32 @@ def admin_create_assessment(request, business_id):
             manager_name = data.get('manager_name', '')
             manager_email = data.get('manager_email', '')
             
+            # If no managers were explicitly selected, include default managers
+            if not manager_ids:
+                default_managers = Manager.objects.filter(business=business, active=True, is_default=True)
+                if default_managers.exists():
+                    manager_ids = list(default_managers.values_list('id', flat=True))
+                    
+                    # If no primary manager is selected, use the first default manager
+                    if not primary_manager_id and not (manager_name and manager_email):
+                        first_default = default_managers.first()
+                        primary_manager_id = first_default.id
+                        manager_name = first_default.name
+                        manager_email = first_default.email
+            
+            # If managers were selected but no defaults were included, add them
+            else:
+                default_manager_ids = list(Manager.objects.filter(
+                    business=business, 
+                    active=True, 
+                    is_default=True
+                ).values_list('id', flat=True))
+                
+                # Add any default managers not already in the selected list
+                for default_id in default_manager_ids:
+                    if default_id not in manager_ids:
+                        manager_ids.append(default_id)
+            
             # Validate manager selection
             if not manager_ids and not (manager_name and manager_email):
                 return JsonResponse({
@@ -1355,7 +1381,7 @@ def admin_create_assessment(request, business_id):
                 # If managers selected but no primary contact info provided,
                 # use the first manager (or default primary) as primary contact
                 managers = Manager.objects.filter(id__in=manager_ids, business=business)
-                primary_manager = managers.filter(is_primary=True).first() or managers.first()
+                primary_manager = managers.filter(is_default=True).first() or managers.first()
                 if primary_manager:
                     manager_name = primary_manager.name
                     manager_email = primary_manager.email
@@ -1431,13 +1457,21 @@ Best regards,
         
         # For GET requests, return available fields and managers
         managers = Manager.objects.filter(business=business, active=True).values(
-            'id', 'name', 'email', 'is_primary'
+            'id', 'name', 'email', 'is_default'
         )
+        
+        # Identify default managers for pre-selection
+        default_manager_ids = list(Manager.objects.filter(
+            business=business, 
+            active=True, 
+            is_default=True
+        ).values_list('id', flat=True))
         
         return JsonResponse({
             'fields': ['candidate_name', 'candidate_email', 'position', 'region', 
                       'manager_ids', 'primary_manager_id', 'manager_name', 'manager_email'],
-            'managers': list(managers)
+            'managers': list(managers),
+            'default_manager_ids': default_manager_ids
         })
         
     except Business.DoesNotExist:
@@ -1625,6 +1659,19 @@ def handle_assessment(request, assessment_id):
                     
                     # Get managers for this business with the provided IDs
                     manager_ids = [int(id) for id in data['manager_ids'] if id]
+                    
+                    # Get all default managers and make sure they're included
+                    default_manager_ids = list(Manager.objects.filter(
+                        business=business,
+                        active=True,
+                        is_default=True
+                    ).values_list('id', flat=True))
+                    
+                    # Ensure all default managers are included
+                    for default_id in default_manager_ids:
+                        if default_id not in manager_ids:
+                            manager_ids.append(default_id)
+                    
                     managers = Manager.objects.filter(
                         id__in=manager_ids,
                         business=business,
@@ -1683,7 +1730,8 @@ def assessment_managers(request, assessment_id):
                     'id': manager.id,
                     'name': manager.name,
                     'email': manager.email,
-                    'is_primary': getattr(manager, 'is_primary', False)
+                    'is_default': manager.is_default,
+                    'is_primary': manager.email == assessment.manager_email
                 })
             
             return JsonResponse({
@@ -1715,7 +1763,7 @@ def manage_managers(request, business_id):
         managers = Manager.objects.filter(
             business_id=business_id,
             active=True
-        ).values('id', 'name', 'email')
+        ).values('id', 'name', 'email', 'is_default')
         
         return JsonResponse({'managers': list(managers)})
     
@@ -1725,6 +1773,7 @@ def manage_managers(request, business_id):
             data = json.loads(request.body)
             name = data.get('name', '').strip()
             email = data.get('email', '').strip()
+            is_default = data.get('is_default', False)
 
             if not name or not email:
                 return JsonResponse({
@@ -1741,13 +1790,15 @@ def manage_managers(request, business_id):
             manager = Manager.objects.create(
                 business=business,
                 name=name,
-                email=email
+                email=email,
+                is_default=is_default
             )
 
             return JsonResponse({
                 'id': manager.id,
                 'name': manager.name,
-                'email': manager.email
+                'email': manager.email,
+                'is_default': manager.is_default
             })
             
         except json.JSONDecodeError:
@@ -1772,6 +1823,7 @@ def manage_manager(request, manager_id):
             data = json.loads(request.body)
             name = data.get('name')
             email = data.get('email')
+            is_default = data.get('is_default', manager.is_default)
             
             if name is not None:
                 manager.name = name
@@ -1791,12 +1843,14 @@ def manage_manager(request, manager_id):
                 
                 manager.email = email
             
+            manager.is_default = is_default
             manager.save()
             
             return JsonResponse({
                 'id': manager.id,
                 'name': manager.name,
                 'email': manager.email,
+                'is_default': manager.is_default
             })
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
@@ -1821,8 +1875,12 @@ def dashboard(request):
 def create_assessment(request):
     """View for HR users to create new assessments with multiple managers"""
     if request.method == 'POST':
-        # Pass the current user's business to the form
-        form = AssessmentCreationForm(request.POST, business=request.user.business)
+        # Pass the current user's business and the user to the form
+        form = AssessmentCreationForm(
+            request.POST, 
+            business=request.user.business,
+            user=request.user
+        )
         if form.is_valid():
             assessment = form.save(commit=False)
             assessment.created_by = request.user
@@ -1875,7 +1933,11 @@ Best regards,
             
             return redirect('baseapp:dashboard')
     else:
-        form = AssessmentCreationForm(business=request.user.business)
+        # Pass the user to the form for initialization
+        form = AssessmentCreationForm(
+            business=request.user.business,
+            user=request.user
+        )
     
     # Get managers for the template context
     managers = Manager.objects.filter(business=request.user.business, active=True)

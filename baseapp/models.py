@@ -110,6 +110,7 @@ class Manager(models.Model):
     email = models.EmailField()
     created_at = models.DateTimeField(auto_now_add=True)
     active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.name} ({self.email})"

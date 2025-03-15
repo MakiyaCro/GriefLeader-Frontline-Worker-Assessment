@@ -57,6 +57,9 @@ class AssessmentCreationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         # Accept business parameter, defaulting to None
         business = kwargs.pop('business', None)
+        # Accept user parameter for automatic manager selection
+        user = kwargs.pop('user', None)
+        
         super().__init__(*args, **kwargs)
         self.business = business
         
@@ -71,6 +74,22 @@ class AssessmentCreationForm(forms.ModelForm):
             # Add help text
             self.fields['selected_managers'].help_text = "These managers will be notified when the assessment is completed"
             self.fields['primary_manager'].help_text = "This manager's name will appear as the sender on emails"
+            
+            # Auto-select default managers if not already in initial
+            if not self.initial.get('selected_managers'):
+                default_managers = managers.filter(is_default=True)
+                if default_managers.exists():
+                    self.initial['selected_managers'] = default_managers
+            
+            # If user provided and they match a manager, auto-select them as primary
+            if user and not self.initial.get('primary_manager'):
+                user_manager = managers.filter(email=user.email).first()
+                if user_manager:
+                    self.initial['primary_manager'] = user_manager
+                    
+                    # Ensure this manager is also in selected_managers
+                    if 'selected_managers' in self.initial and user_manager not in self.initial['selected_managers']:
+                        self.initial['selected_managers'] = list(self.initial['selected_managers']) + [user_manager]
         
     def clean(self):
         cleaned_data = super().clean()
@@ -106,15 +125,6 @@ class AssessmentCreationForm(forms.ModelForm):
             self.instance.manager_name = self.cleaned_data['primary_manager'].name
             self.instance.manager_email = self.cleaned_data['primary_manager'].email
             
-        assessment = super().save(commit=commit)
-        
-        if commit and self.cleaned_data.get('selected_managers'):
-            # Add the selected managers to the assessment
-            assessment.managers.set(self.cleaned_data['selected_managers'])
-            
-        return assessment
-        
-    def save(self, commit=True):
         assessment = super().save(commit=commit)
         
         if commit and self.cleaned_data.get('selected_managers'):
