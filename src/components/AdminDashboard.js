@@ -3,6 +3,8 @@ import BenchmarkSection from './BenchmarkSection';
 import AssessmentSection from './AssessmentSection';
 import QuestionPairManager from './QuestionPairManager';
 import HRUserManager from './HRUserManager';
+import ModuleVisibilityMenu from './ModuleVisibilityMenu';
+import { ChevronRight } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [businesses, setBusinesses] = useState([]);
@@ -34,6 +36,14 @@ const AdminDashboard = () => {
     is_default: false
   });
   const [managers, setManagers] = useState([]);
+  const [moduleVisibility, setModuleVisibility] = useState({
+    sidebarModule: true,
+    hrUsersModule: true,
+    assessmentModule: true,
+    benchmarkModule: true,
+    managersModule: true,
+    questionPairsModule: true
+  });
 
   // Fetch businesses when component mounts
   useEffect(() => {
@@ -406,6 +416,13 @@ const AdminDashboard = () => {
       setError(err.message);
     }
   };
+
+  const handleToggleModuleVisibility = (moduleId, isVisible) => {
+    setModuleVisibility(prev => ({
+      ...prev,
+      [moduleId]: isVisible
+    }));
+  };
   // If loading, show loading state
   if (loading) {
     return <div>Loading...</div>;
@@ -413,7 +430,11 @@ const AdminDashboard = () => {
 
   return (
     <div className="flex h-screen">
+      {/* Module Visibility Menu */}
+      <ModuleVisibilityMenu onToggleModuleVisibility={handleToggleModuleVisibility} />
+
       {/* Business Sidebar */}
+      {moduleVisibility.sidebarModule ? (
       <div className="w-64 bg-gray-100 p-4 flex flex-col">
         <h2 className="text-xl font-bold mb-4">Businesses</h2>
         <div className="flex-grow overflow-y-auto">
@@ -449,6 +470,18 @@ const AdminDashboard = () => {
           Create New Business
         </button>
       </div>
+    ) : (
+      /* When sidebar is hidden, show a minimal sidebar with just a toggle button */
+      <div className="w-10 bg-gray-100 flex flex-col items-center p-2">
+        <button
+          onClick={() => handleToggleModuleVisibility('sidebarModule', true)}
+          className="mt-2 text-blue-500 hover:text-blue-700"
+          title="Show Business Sidebar"
+        >
+          <ChevronRight size={20} />
+        </button>
+      </div>
+    )}
 
       {/* Main Content Area */}
       <div className="flex-1 p-8 bg-white overflow-y-auto">
@@ -485,89 +518,92 @@ const AdminDashboard = () => {
             {businessDetails && (
               <div className="grid grid-cols-2 gap-8">
                 {/* HR Users Section */}
-                <div className="bg-gray-50 p-6 rounded-lg">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">HR Users</h2>
-                    <button 
-                      onClick={() => setShowAddHRUserModal(true)}
-                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      Add HR User
-                    </button>
+                {moduleVisibility.hrUsersModule && (
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-semibold">HR Users</h2>
+                      <button 
+                        onClick={() => setShowAddHRUserModal(true)}
+                        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Add HR User
+                      </button>
+                    </div>
+                    
+                    {businessDetails && (
+                      businessDetails.hr_users.length === 0 ? (
+                        <p className="text-gray-500">No HR users found</p>
+                      ) : (
+                        <HRUserManager
+                          hrUsers={businessDetails.hr_users}
+                          onDeleteUser={async (userId) => {
+                            try {
+                              const response = await fetch(`/api/hr-users/${userId}/`, {
+                                method: 'DELETE',
+                                headers: {
+                                  'X-CSRFToken': getCsrfToken(),
+                                }
+                              });
+                              
+                              if (!response.ok) throw new Error('Failed to delete HR user');
+                              
+                              // Refresh business details
+                              await fetchBusinessDetails(selectedBusiness.id);
+                              
+                              setSuccess('HR user deleted successfully');
+                              setTimeout(() => setSuccess(null), 3000);
+                            } catch (err) {
+                              setError(err.message);
+                            }
+                          }}
+                          onEditUser={async (userId, data) => {
+                            try {
+                              const response = await fetch(`/api/hr-users/${userId}/`, {
+                                method: 'PUT',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'X-CSRFToken': getCsrfToken(),
+                                },
+                                body: JSON.stringify(data)
+                              });
+                              
+                              if (!response.ok) throw new Error('Failed to update HR user');
+                              
+                              // Refresh business details
+                              await fetchBusinessDetails(selectedBusiness.id);
+                              
+                              setSuccess('HR user updated successfully');
+                              setTimeout(() => setSuccess(null), 3000);
+                            } catch (err) {
+                              setError(err.message);
+                            }
+                          }}
+                          onResetPassword={async (userId) => {
+                            try {
+                              const response = await fetch(`/api/hr-users/${userId}/reset-password/`, {
+                                method: 'POST',
+                                headers: {
+                                  'X-CSRFToken': getCsrfToken(),
+                                }
+                              });
+                              
+                              if (!response.ok) throw new Error('Failed to reset password');
+                              
+                              setSuccess('Password reset email sent successfully');
+                              setTimeout(() => setSuccess(null), 3000);
+                            } catch (err) {
+                              setError(err.message);
+                            }
+                          }}
+                        />
+                      )
+                    )}
                   </div>
-                  
-                  {businessDetails && (
-                    businessDetails.hr_users.length === 0 ? (
-                      <p className="text-gray-500">No HR users found</p>
-                    ) : (
-                      <HRUserManager
-                        hrUsers={businessDetails.hr_users}
-                        onDeleteUser={async (userId) => {
-                          try {
-                            const response = await fetch(`/api/hr-users/${userId}/`, {
-                              method: 'DELETE',
-                              headers: {
-                                'X-CSRFToken': getCsrfToken(),
-                              }
-                            });
-                            
-                            if (!response.ok) throw new Error('Failed to delete HR user');
-                            
-                            // Refresh business details
-                            await fetchBusinessDetails(selectedBusiness.id);
-                            
-                            setSuccess('HR user deleted successfully');
-                            setTimeout(() => setSuccess(null), 3000);
-                          } catch (err) {
-                            setError(err.message);
-                          }
-                        }}
-                        onEditUser={async (userId, data) => {
-                          try {
-                            const response = await fetch(`/api/hr-users/${userId}/`, {
-                              method: 'PUT',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': getCsrfToken(),
-                              },
-                              body: JSON.stringify(data)
-                            });
-                            
-                            if (!response.ok) throw new Error('Failed to update HR user');
-                            
-                            // Refresh business details
-                            await fetchBusinessDetails(selectedBusiness.id);
-                            
-                            setSuccess('HR user updated successfully');
-                            setTimeout(() => setSuccess(null), 3000);
-                          } catch (err) {
-                            setError(err.message);
-                          }
-                        }}
-                        onResetPassword={async (userId) => {
-                          try {
-                            const response = await fetch(`/api/hr-users/${userId}/reset-password/`, {
-                              method: 'POST',
-                              headers: {
-                                'X-CSRFToken': getCsrfToken(),
-                              }
-                            });
-                            
-                            if (!response.ok) throw new Error('Failed to reset password');
-                            
-                            setSuccess('Password reset email sent successfully');
-                            setTimeout(() => setSuccess(null), 3000);
-                          } catch (err) {
-                            setError(err.message);
-                          }
-                        }}
-                      />
-                    )
-                  )}
-                </div>
+                )}
 
                 {/* Assessment Pairs Section */}
-                <div className="bg-gray-50 p-6 rounded-lg">
+                {moduleVisibility.questionPairsModule && (
+                  <div className="bg-gray-50 p-6 rounded-lg">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold">Assessment Pairs</h2>
                     <label className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer">
@@ -631,87 +667,96 @@ const AdminDashboard = () => {
                     />
                   )}
                   </div>
+                )}
                   
                 {/* Manager Section */}
-                <div className="bg-gray-50 p-6 rounded-lg mt-8">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">Managers</h2>
-                    <button 
-                      onClick={() => setShowAddManagerModal(true)}
-                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      Add Manager
-                    </button>
-                  </div>
-                  
-                  {managers.length === 0 ? (
-                    <p className="text-gray-500">No managers found</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Name
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Email
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Default
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {managers.map((manager) => (
-                            <tr key={manager.id}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {manager.name}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {manager.email}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {manager.is_default ? (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    Yes
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400">No</span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button 
-                                  onClick={() => {
-                                    setCurrentManager(manager);
-                                    setShowEditManagerModal(true);
-                                  }}
-                                  className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                >
-                                  Edit
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteManager(manager.id)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                {moduleVisibility.managersModule && (
+                  <div className="bg-gray-50 p-6 rounded-lg mt-8">
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-semibold">Managers</h2>
+                      <button 
+                        onClick={() => setShowAddManagerModal(true)}
+                        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Add Manager
+                      </button>
                     </div>
-                  )}
-                </div>
+                    
+                    {managers.length === 0 ? (
+                      <p className="text-gray-500">No managers found</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Name
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Email
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Default
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {managers.map((manager) => (
+                              <tr key={manager.id}>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {manager.name}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {manager.email}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {manager.is_default ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      Yes
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">No</span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <button 
+                                    onClick={() => {
+                                      setCurrentManager(manager);
+                                      setShowEditManagerModal(true);
+                                    }}
+                                    className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteManager(manager.id)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               )}
               {/* Add BenchmarkSection here, right after the grid */}
-              <BenchmarkSection businessDetails={businessDetails} />
-              <AssessmentSection businessDetails={businessDetails} />
+              {moduleVisibility.benchmarkModule && (
+                <BenchmarkSection businessDetails={businessDetails} />
+              )}
+              
+              {moduleVisibility.assessmentModule && (
+                <AssessmentSection businessDetails={businessDetails} />
+              )}
+
           </div>
         )}
       </div>
