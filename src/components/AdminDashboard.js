@@ -30,7 +30,8 @@ const AdminDashboard = () => {
   const [currentManager, setCurrentManager] = useState(null);
   const [newManager, setNewManager] = useState({
     name: '',
-    email: ''
+    email: '',
+    is_default: false
   });
   const [managers, setManagers] = useState([]);
 
@@ -307,13 +308,21 @@ const AdminDashboard = () => {
 
     try {
       setLoading(true);
+      
+      // Log data being sent to help with debugging
+      console.log('Sending manager data:', newManager);
+      
       const response = await fetch(`/api/businesses/${selectedBusiness.id}/managers/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': getCsrfToken(),
         },
-        body: JSON.stringify(newManager),
+        body: JSON.stringify({
+          name: newManager.name,
+          email: newManager.email,
+          is_default: newManager.is_default || false // Ensure boolean value
+        }),
       });
 
       if (!response.ok) {
@@ -330,7 +339,8 @@ const AdminDashboard = () => {
       // Reset form
       setNewManager({
         name: '',
-        email: ''
+        email: '',
+        is_default: false
       });
       
       // Show success message
@@ -338,6 +348,7 @@ const AdminDashboard = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.message);
+      console.error('Error adding manager:', err);
     } finally {
       setLoading(false);
     }
@@ -377,7 +388,8 @@ const AdminDashboard = () => {
         },
         body: JSON.stringify({
           name: currentManager.name,
-          email: currentManager.email
+          email: currentManager.email,
+          is_default: currentManager.is_default
         }),
       });
       
@@ -394,7 +406,6 @@ const AdminDashboard = () => {
       setError(err.message);
     }
   };
-
   // If loading, show loading state
   if (loading) {
     return <div>Loading...</div>;
@@ -647,6 +658,9 @@ const AdminDashboard = () => {
                               Email
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Default
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Actions
                             </th>
                           </tr>
@@ -659,6 +673,15 @@ const AdminDashboard = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 {manager.email}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {manager.is_default ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Yes
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">No</span>
+                                )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button 
@@ -856,36 +879,51 @@ const AdminDashboard = () => {
       {/* Add Manager Modal */}
       {showAddManagerModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
+          <div className="bg-white p-6 rounded-lg w-full max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold mb-6">Add Manager</h2>
             <form onSubmit={handleAddManager} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={newManager.name}
-                  onChange={(e) => setNewManager({...newManager, name: e.target.value})}
-                  className="w-full p-2 border rounded"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newManager.name}
+                    onChange={(e) => setNewManager({...newManager, name: e.target.value})}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newManager.email}
+                    onChange={(e) => setNewManager({...newManager, email: e.target.value})}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
+              <div className="flex items-center mt-4">
                 <input
-                  type="email"
-                  value={newManager.email}
-                  onChange={(e) => setNewManager({...newManager, email: e.target.value})}
-                  className="w-full p-2 border rounded"
-                  required
+                  id="is_default"
+                  type="checkbox"
+                  checked={newManager.is_default}
+                  onChange={(e) => setNewManager({...newManager, is_default: e.target.checked})}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
+                <label htmlFor="is_default" className="ml-2 block text-sm text-gray-900">
+                  Default Manager (automatically receives all assessment notifications)
+                </label>
               </div>
 
-              <div className="flex justify-end space-x-4">
+              <div className="flex justify-end space-x-4 pt-4 mt-4 border-t">
                 <button
                   type="button"
                   onClick={() => setShowAddManagerModal(false)}
@@ -908,36 +946,51 @@ const AdminDashboard = () => {
       {/* Edit Manager Modal */}
       {showEditManagerModal && currentManager && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
+          <div className="bg-white p-6 rounded-lg w-full max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold mb-6">Edit Manager</h2>
             <form onSubmit={handleEditManager} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={currentManager.name}
-                  onChange={(e) => setCurrentManager({...currentManager, name: e.target.value})}
-                  className="w-full p-2 border rounded"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={currentManager.name}
+                    onChange={(e) => setCurrentManager({...currentManager, name: e.target.value})}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={currentManager.email}
+                    onChange={(e) => setCurrentManager({...currentManager, email: e.target.value})}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
+              <div className="flex items-center mt-4">
                 <input
-                  type="email"
-                  value={currentManager.email}
-                  onChange={(e) => setCurrentManager({...currentManager, email: e.target.value})}
-                  className="w-full p-2 border rounded"
-                  required
+                  id="edit_is_default"
+                  type="checkbox"
+                  checked={currentManager.is_default || false}
+                  onChange={(e) => setCurrentManager({...currentManager, is_default: e.target.checked})}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
+                <label htmlFor="edit_is_default" className="ml-2 block text-sm text-gray-900">
+                  Default Manager (automatically receives all assessment notifications)
+                </label>
               </div>
 
-              <div className="flex justify-end space-x-4">
+              <div className="flex justify-end space-x-4 pt-4 mt-4 border-t">
                 <button
                   type="button"
                   onClick={() => setShowEditManagerModal(false)}
