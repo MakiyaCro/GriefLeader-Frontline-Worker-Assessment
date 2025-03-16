@@ -53,10 +53,17 @@ const AdminDashboard = () => {
   }, []);
   
   useEffect(() => {
-  if (selectedBusiness) {
-    fetchManagers();
-  }
-}, [selectedBusiness]);
+    if (selectedBusiness) {
+      fetchManagers();
+    }
+  }, [selectedBusiness]);
+  
+  useEffect(() => {
+    if (selectedBusiness) {
+      fetchBusinessDetails(selectedBusiness.id);
+    }
+  }, [selectedBusiness?.id]); // Only run when the selected business ID changes
+  
 
   // Get CSRF token
   const getCsrfToken = () => {
@@ -81,6 +88,12 @@ const AdminDashboard = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshBusinessData = async () => {
+    if (selectedBusiness) {
+      await fetchBusinessDetails(selectedBusiness.id);
     }
   };
 
@@ -122,13 +135,7 @@ const AdminDashboard = () => {
       
       const data = await response.json();
       
-      // Update the selected business with the new logo URL
-      setSelectedBusiness({
-        ...selectedBusiness,
-        logo_url: data.logo_url
-      });
-      
-      // Refresh business details
+      // Fully refresh the business data after successful upload
       await fetchBusinessDetails(selectedBusiness.id);
       
       setSuccess('Logo uploaded successfully');
@@ -143,12 +150,23 @@ const AdminDashboard = () => {
   // Fetch business details
   const fetchBusinessDetails = async (businessId) => {
     try {
+      setLoading(true);
       const response = await fetch(`/api/businesses/${businessId}/details/`);
       if (!response.ok) throw new Error('Failed to fetch business details');
       const data = await response.json();
+      
+      // Update both selectedBusiness and businessDetails with fresh data
+      setSelectedBusiness({
+        ...data.business
+      });
       setBusinessDetails(data);
+      
+      // Also refresh managers
+      await fetchManagers();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 

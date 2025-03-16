@@ -712,7 +712,7 @@ def business_details(request, business_id):
         })
     except Business.DoesNotExist:
         return JsonResponse({"error": "Business not found"}, status=404)
-
+    
 @require_http_methods(["GET", "PUT", "DELETE"])
 @user_passes_test(is_admin)
 def business_detail(request, pk):
