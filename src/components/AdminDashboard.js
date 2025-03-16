@@ -4,7 +4,7 @@ import AssessmentSection from './AssessmentSection';
 import QuestionPairManager from './QuestionPairManager';
 import HRUserManager from './HRUserManager';
 import ModuleVisibilityMenu from './ModuleVisibilityMenu';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Upload } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [businesses, setBusinesses] = useState([]);
@@ -19,7 +19,9 @@ const AdminDashboard = () => {
   const [newBusinessData, setNewBusinessData] = useState({
     name: '',
     slug: '',
-    primaryColor: '#000000'
+    primaryColor: '#000000',
+    useColor: true,
+    logo: null
   });
   const [newHRUser, setNewHRUser] = useState({
     email: '',
@@ -82,6 +84,62 @@ const AdminDashboard = () => {
     }
   };
 
+  // Add function to handle logo upload for the selected business
+  const handleLogoUpload = async (event) => {
+    if (!selectedBusiness) return;
+    
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validate file is an image and under 2MB
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file (PNG, JPG, etc.)');
+      return;
+    }
+    
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Logo file size must be under 2MB');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('logo', file);
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/businesses/${selectedBusiness.id}/upload-logo/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload logo');
+      }
+      
+      const data = await response.json();
+      
+      // Update the selected business with the new logo URL
+      setSelectedBusiness({
+        ...selectedBusiness,
+        logo_url: data.logo_url
+      });
+      
+      // Refresh business details
+      await fetchBusinessDetails(selectedBusiness.id);
+      
+      setSuccess('Logo uploaded successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch business details
   const fetchBusinessDetails = async (businessId) => {
     try {
@@ -128,8 +186,11 @@ const AdminDashboard = () => {
   // Create new business
   const handleCreateBusiness = async (e) => {
     e.preventDefault();
+    
     try {
       setLoading(true);
+      
+      // First create the business
       const response = await fetch('/api/businesses/', {
         method: 'POST',
         headers: {
@@ -139,13 +200,33 @@ const AdminDashboard = () => {
         body: JSON.stringify({
           name: newBusinessData.name,
           slug: newBusinessData.name.toLowerCase().replace(/\s+/g, '-'),
-          primaryColor: newBusinessData.primaryColor
+          primaryColor: newBusinessData.useColor ? newBusinessData.primaryColor : '#000000'
         }),
       });
 
       if (!response.ok) throw new Error('Failed to create business');
 
       const data = await response.json();
+      
+      // If logo was provided, upload it
+      if (!newBusinessData.useColor && newBusinessData.logo) {
+        const formData = new FormData();
+        formData.append('logo', newBusinessData.logo);
+        
+        const logoResponse = await fetch(`/api/businesses/${data.id}/upload-logo/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+          },
+          body: formData
+        });
+        
+        if (!logoResponse.ok) {
+          const errorData = await logoResponse.json();
+          console.error('Logo upload failed:', errorData.error);
+          // We continue even if logo upload fails
+        }
+      }
       
       // Refresh businesses list
       await fetchBusinesses();
@@ -160,7 +241,9 @@ const AdminDashboard = () => {
       setNewBusinessData({
         name: '',
         slug: '',
-        primaryColor: '#000000'
+        primaryColor: '#000000',
+        useColor: true,
+        logo: null
       });
       
       // Show success message
@@ -506,12 +589,49 @@ const AdminDashboard = () => {
               >
                 {selectedBusiness.name}
               </h1>
-              <button 
-                onClick={() => setShowDeleteBusinessConfirmation(true)}
-                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 flex items-center"
-              >
-                Delete Business
-              </button>
+              <div className="flex items-center">
+                {selectedBusiness.logo_url ? (
+                  <div className="relative mr-4">
+                    <img 
+                      src={selectedBusiness.logo_url} 
+                      alt={`${selectedBusiness.name} logo`} 
+                      className="h-16 max-w-xs object-contain"
+                    />
+                    <label 
+                      className="cursor-pointer absolute bottom-0 right-0 bg-white p-1 rounded-full shadow"
+                      title="Change Logo"
+                    >
+                      <Upload size={16} className="text-gray-500" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <label 
+                    className="cursor-pointer px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 mr-4 flex items-center"
+                    title="Upload Logo"
+                  >
+                    <Upload size={16} className="mr-2" />
+                    Upload Logo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+                <button 
+                  onClick={() => setShowDeleteBusinessConfirmation(true)}
+                  className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 flex items-center"
+                >
+                  Delete Business
+                </button>
+              </div>
             </div>
 
             {/* Business Details */}
@@ -783,20 +903,84 @@ const AdminDashboard = () => {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Primary Color
+              <div className="flex items-center space-x-4 my-4">
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    checked={newBusinessData.useColor}
+                    onChange={() => setNewBusinessData({
+                      ...newBusinessData,
+                      useColor: true,
+                      logo: null
+                    })}
+                    className="form-radio h-4 w-4 text-blue-600"
+                  />
+                  <span className="ml-2">Use Primary Color</span>
                 </label>
-                <input
-                  type="color"
-                  value={newBusinessData.primaryColor}
-                  onChange={(e) => setNewBusinessData({
-                    ...newBusinessData,
-                    primaryColor: e.target.value
-                  })}
-                  className="w-full p-1 border rounded"
-                />
+                
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    checked={!newBusinessData.useColor}
+                    onChange={() => setNewBusinessData({
+                      ...newBusinessData,
+                      useColor: false
+                    })}
+                    className="form-radio h-4 w-4 text-blue-600"
+                  />
+                  <span className="ml-2">Upload Logo</span>
+                </label>
               </div>
+              
+              {newBusinessData.useColor ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Primary Color
+                  </label>
+                  <input
+                    type="color"
+                    value={newBusinessData.primaryColor}
+                    onChange={(e) => setNewBusinessData({
+                      ...newBusinessData,
+                      primaryColor: e.target.value
+                    })}
+                    className="w-full p-1 border rounded"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Business Logo
+                  </label>
+                  <div className="mt-1 flex items-center">
+                    <label className="w-full flex justify-center px-4 py-2 border-2 border-gray-300 border-dashed rounded-md cursor-pointer hover:bg-gray-50">
+                      <div className="space-y-1 text-center">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                        <div className="flex text-sm text-gray-600">
+                          <span>{newBusinessData.logo ? newBusinessData.logo.name : 'Select a logo file'}</span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG, GIF up to 2MB
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setNewBusinessData({
+                              ...newBusinessData,
+                              logo: file
+                            });
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end space-x-4">
                 <button

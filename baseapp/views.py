@@ -679,6 +679,9 @@ def business_details(request, business_id):
     try:
         business = Business.objects.get(pk=business_id)
         
+        # Get logo URL if it exists
+        logo_url = business.logo.url if business.logo else None
+        
         # Get HR users for this business
         hr_users = CustomUser.objects.filter(
             business=business, 
@@ -701,6 +704,7 @@ def business_details(request, business_id):
                 'id': business.id,
                 'name': business.name,
                 'primary_color': business.primary_color,
+                'logo_url': logo_url,
                 'assessment_template_uploaded': business.assessment_template_uploaded
             },
             'hr_users': list(hr_users),
@@ -718,11 +722,15 @@ def business_detail(request, pk):
         return JsonResponse({"error": "Business not found"}, status=404)
 
     if request.method == "GET":
+        # Get logo URL if it exists
+        logo_url = business.logo.url if business.logo and business.logo.name else None
+        
         return JsonResponse({
             "id": business.id,
             "name": business.name,
             "slug": business.slug,
             "primary_color": business.primary_color,
+            "logo_url": logo_url,
             "assessment_template_uploaded": business.assessment_template_uploaded
         })
     elif request.method == "PUT":
@@ -758,7 +766,43 @@ def business_detail(request, pk):
             return JsonResponse({
                 "error": f"Error deleting business: {str(e)}"
             }, status=500)
+
+@require_http_methods(["POST"])
+@user_passes_test(is_admin)
+def upload_business_logo(request, business_id):
+    try:
+        business = Business.objects.get(pk=business_id)
         
+        if 'logo' not in request.FILES:
+            return JsonResponse({"error": "No logo file provided"}, status=400)
+            
+        logo_file = request.FILES['logo']
+        
+        # Validate file is an image
+        if not logo_file.content_type.startswith('image/'):
+            return JsonResponse({"error": "Uploaded file is not an image"}, status=400)
+        
+        # Check file size (limit to 2MB)
+        if logo_file.size > 2 * 1024 * 1024:
+            return JsonResponse({"error": "Logo file size must be under 2MB"}, status=400)
+        
+        # If there's an existing logo, delete it
+        if business.logo:
+            business.logo.delete(save=False)
+        
+        business.logo = logo_file
+        business.save()
+        
+        return JsonResponse({
+            "message": "Logo uploaded successfully",
+            "logo_url": business.logo.url
+        })
+        
+    except Business.DoesNotExist:
+        return JsonResponse({"error": "Business not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": f"Error uploading logo: {str(e)}"}, status=500)
+
 #--hr
 @require_http_methods(["GET", "PUT", "DELETE"])
 @user_passes_test(is_admin)

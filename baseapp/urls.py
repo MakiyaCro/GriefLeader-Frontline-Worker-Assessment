@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/businesses/list/', views.list_businesses, name='list-businesses'),
     path('api/businesses/<int:business_id>/details/', views.business_details, name='business-details'),
     path('api/businesses/<int:pk>/', views.business_detail, name='business-detail'),
+    path('api/businesses/<int:business_id>/upload-logo/', views.upload_business_logo, name='upload-business-logo'),
 
     #--hr
     path('api/hr-users/<int:pk>/', views.hr_user_detail, name='hr-user-detail'),
