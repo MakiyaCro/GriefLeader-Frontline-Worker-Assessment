@@ -49,16 +49,17 @@
             margin-bottom: 12px;
             margin-top: 8px;
         }
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            column-gap: 20px;
-            row-gap: 3px;
+        .info-row {
+            display: flex;
+            margin-bottom: 3px;
         }
-        .info-line {
-            margin: 0;
+        .info-item {
+            flex: 1;
             font-size: 14px;
             white-space: nowrap;
+        }
+        .info-item:first-child {
+            padding-right: 20px;
         }
         table {
             width: 100%;
@@ -127,13 +128,29 @@
         <h1 class="report-title">Candidate Fit to Benchmark Assessment</h1>
         
         <div class="candidate-info">
-            <div class="info-grid">
-                <p class="info-line"><strong>Candidate Name:</strong> {{ candidate_name }}</p>
-                <p class="info-line"><strong>Position:</strong> {{ position }}</p>
-                <p class="info-line"><strong>Date Completed:</strong> {{ submitted_at }}</p>
-                <p class="info-line"><strong>Time To Complete:</strong> {{ completion_time }}</p>
-                <p class="info-line"><strong>Hiring Manager:</strong> {{ manager_name }}</p>
-                <p class="info-line"><strong>Region:</strong> {{ region }}</p>
+            <div class="info-row">
+                <div class="info-item">
+                    <strong>Candidate Name:</strong> {{ candidate_name }}
+                </div>
+                <div class="info-item">
+                    <strong>Position:</strong> {{ position }}
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-item">
+                    <strong>Date Completed:</strong> {{ submitted_at }}
+                </div>
+                <div class="info-item">
+                    <strong>Time To Complete:</strong> {{ completion_time }}
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-item">
+                    <strong>Hiring Manager:</strong> {{ manager_name }}
+                </div>
+                <div class="info-item">
+                    <strong>Region:</strong> {{ region }}
+                </div>
             </div>
         </div>
 
