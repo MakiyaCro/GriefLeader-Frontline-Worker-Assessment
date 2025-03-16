@@ -46,16 +46,19 @@
             font-weight: bold;
         }
         .candidate-info {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
+            margin-top: 8px;
         }
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 5px;
+            grid-template-columns: repeat(2, 1fr);
+            column-gap: 20px;
+            row-gap: 3px;
         }
         .info-line {
-            margin: 2px 0;
+            margin: 0;
             font-size: 14px;
+            white-space: nowrap;
         }
         table {
             width: 100%;
