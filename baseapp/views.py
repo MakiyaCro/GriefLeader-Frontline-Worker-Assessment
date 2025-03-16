@@ -1338,6 +1338,9 @@ Work Force Compass Admin
 @user_passes_test(is_admin)
 def benchmark_results(request, business_id):
     """Get benchmark results with database caching to reduce query load"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         region = request.GET.get('region', 'all')
         force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
@@ -1383,8 +1386,17 @@ def benchmark_results(request, business_id):
             active=True
         ))
         
+        # Get the true count of assessment responses - this is what we want to display
+        assessment_count = len(assessments)
+        
         # Use a dictionary to track attribute scores
-        attribute_scores = {attr.id: {'total': 0.0, 'count': 0, 'name': attr.name} for attr in attributes}
+        attribute_scores = {
+            attr.id: {
+                'total': 0.0,  # Total "points" for this attribute
+                'count': 0,    # This will track instances actually measuring this attribute
+                'name': attr.name
+            } for attr in attributes
+        }
         
         # Process all assessment responses and calculate scores in one go
         for assessment_response in assessments:
@@ -1407,20 +1419,21 @@ def benchmark_results(request, business_id):
                         attribute_scores[question_pair.attribute2_id]['total'] += 1
                     attribute_scores[question_pair.attribute2_id]['count'] += 1
         
-        # Calculate final results
+        # Calculate final results - using the correct assessment count for reporting
         results = []
         for attr_id, data in attribute_scores.items():
             if data['count'] > 0:
                 results.append({
                     'attribute': data['name'],
                     'score': round((data['total'] / data['count']) * 100, 2),
-                    'responses': data['count']
+                    'responses': assessment_count  # Use the actual assessment count instead of attribute instances
                 })
         
         # Cache the results using timeout from settings
         timeout = getattr(settings, 'BENCHMARK_CACHE_TIMEOUT', 86400)  # Default 1 day
         cache.set(cache_key, results, timeout)
         
+        logger.info(f"Calculated benchmark results for business {business_id}, region {region}, found {assessment_count} assessments")
         return JsonResponse({'results': results})
     except Exception as e:
         logger.error(f"Error in benchmark_results: {e}", exc_info=True)
