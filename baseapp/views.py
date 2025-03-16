@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.mail import EmailMessage, send_mail, send_mass_mail, EmailMultiAlternatives
+from django.core.cache import cache
 from django.conf import settings
 from django.contrib import messages
 from django.utils.crypto import get_random_string
@@ -10,6 +11,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from datetime import datetime
 import pandas as pd
 import json
@@ -22,6 +25,10 @@ from weasyprint import HTML, CSS
 import os
 from io import StringIO
 from .rate_limiting import rate_limit
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 #link generation
 def generate_secure_token(entity_id=None, token_type='general', length=16):
@@ -247,7 +254,11 @@ def take_assessment(request, unique_link):
     import logging
     logger = logging.getLogger(__name__)
     
-    assessment = get_object_or_404(Assessment, unique_link=unique_link)
+    # Prefetch all needed relations in one query
+    assessment = get_object_or_404(
+        Assessment.objects.select_related('business').prefetch_related('managers'),
+        unique_link=unique_link
+    )
     
     # Check if assessment is already completed
     if assessment.completed:
@@ -258,7 +269,7 @@ def take_assessment(request, unique_link):
     question_pairs = QuestionPair.objects.filter(
         business=assessment.business,
         active=True
-    ).order_by('order')
+    ).select_related('attribute1', 'attribute2').order_by('order')
     
     if request.method == 'POST':
         form = AssessmentResponseForm(request.POST, question_pairs=question_pairs)
@@ -290,6 +301,15 @@ def take_assessment(request, unique_link):
                 assessment.completed = True
                 assessment.completed_at = timezone.now()
                 assessment.save()
+
+                # Invalidate benchmark cache if this is a benchmark assessment
+                if assessment.assessment_type == 'benchmark':
+                    logger.info(f"Invalidating cache for completed benchmark assessment: {assessment.id}")
+                    try:
+                        clear_benchmark_cache_for_business(assessment.business_id)
+                    except Exception as e:
+                        logger.error(f"Error clearing benchmark cache: {str(e)}")
+                        # Continue processing even if cache clearing fails
                 
                 # Only process PDF and send emails for standard assessments
                 if assessment.assessment_type == 'standard':
@@ -417,6 +437,71 @@ def thank_you(request):
     """Simple view for the thank you page after assessment completion"""
     return render(request, 'baseapp/thank_you.html')
 
+#cache functions
+def clear_benchmark_cache_for_business(business_id):
+    """Clear all benchmark result caches for a business"""
+    logger.info(f"Clearing benchmark cache for business {business_id}")
+    
+    # Clear cache for 'all' regions
+    cache.delete(f'benchmark_results_{business_id}_all')
+    
+    # Find all unique regions and clear their caches
+    regions = Assessment.objects.filter(
+        business_id=business_id,
+        assessment_type='benchmark'
+    ).values_list('region', flat=True).distinct()
+    
+    for region in regions:
+        if region:  # Ensure region is not None or empty
+            cache.delete(f'benchmark_results_{business_id}_{region}')
+    
+    logger.info(f"Benchmark cache cleared for business {business_id}")
+
+@receiver(post_save, sender=AssessmentResponse)
+def invalidate_benchmark_cache(sender, instance, created, **kwargs):
+    """Invalidate cache when a benchmark assessment is completed"""
+    try:
+        # Skip if can't determine assessment type or not completed
+        if not hasattr(instance, 'assessment') or not instance.assessment:
+            return
+            
+        # Only process benchmark assessments
+        if instance.assessment.assessment_type != 'benchmark':
+            return
+        
+        # Only invalidate cache when assessment is completed
+        if not instance.assessment.completed:
+            return
+        
+        logger.info(f"Benchmark assessment completed, invalidating cache for response {instance.id}")
+        clear_benchmark_cache_for_business(instance.assessment.business_id)
+        
+    except Exception as e:
+        # Log error but don't disrupt the save process
+        logger.error(f"Error invalidating benchmark cache: {e}", exc_info=True)
+
+# Function to manually refresh cache - useful for admin operations
+@require_http_methods(["POST"])
+@user_passes_test(is_admin)
+def refresh_benchmark_cache(request, business_id):
+    """Admin endpoint to manually force refresh benchmark cache"""
+    try:
+        # Clear the cache
+        clear_benchmark_cache_for_business(business_id)
+        
+        logger.info(f"Benchmark cache manually refreshed for business {business_id}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Benchmark cache successfully refreshed'
+        })
+    except Exception as e:
+        logger.error(f"Error refreshing benchmark cache: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
 
 #admin views
 #--overall
@@ -441,65 +526,101 @@ def admin_dashboard(request):
     
     current_business = request.user.current_business
     
-    # Get all assessments for current business with related data
+    # Get all assessments for current business with related data - ONE QUERY
     assessments = Assessment.objects.filter(
         business=current_business
     ).select_related(
         'created_by',
         'assessmentresponse'
     ).prefetch_related(
-        'benchmark_batch'
+        'benchmark_batch',
+        'managers'
     ).order_by('-created_at')
 
-    # Get statistics
-    hr_users_count = CustomUser.objects.filter(
-        is_hr=True, 
-        business=current_business
-    ).count()
+    # Use a single ANNOTATE query to get counts instead of multiple queries
+    from django.db.models import Count, Q
     
-    assessments_count = assessments.count()
-    pending_assessments_count = assessments.filter(completed=False).count()
+    # Get all counts in one query
+    hr_stats = CustomUser.objects.filter(business=current_business).aggregate(
+        hr_users_count=Count('id', filter=Q(is_hr=True))
+    )
+    
+    # Get assessment counts in single query
+    assessment_stats = assessments.aggregate(
+        assessments_count=Count('id'),
+        pending_count=Count('id', filter=Q(completed=False)),
+        benchmark_completed=Count('id', filter=Q(assessment_type='benchmark', completed=True)),
+        benchmark_total=Count('id', filter=Q(assessment_type='benchmark'))
+    )
     
     # Calculate benchmark completion
-    benchmark_assessments = assessments.filter(assessment_type='benchmark')
-    if benchmark_assessments.exists():
-        completed = benchmark_assessments.filter(completed=True).count()
-        total = benchmark_assessments.count()
-        benchmark_completion = round((completed / total) * 100 if total > 0 else 0, 1)
-    else:
-        benchmark_completion = 0
+    benchmark_completion = 0
+    if assessment_stats['benchmark_total'] > 0:
+        benchmark_completion = round(
+            (assessment_stats['benchmark_completed'] / assessment_stats['benchmark_total']) * 100, 
+            1
+        )
     
-    # Get benchmark batches with completion rates and prefetch related assessments
+    # Get benchmark batches with completion rates - optimize the loop
     benchmark_batches = BenchmarkBatch.objects.filter(
         business=current_business
     ).prefetch_related('assessment_set')
     
-    for batch in benchmark_batches:
-        total = batch.assessment_set.count()
-        completed = batch.assessment_set.filter(completed=True).count()
-        batch.completion_rate = round((completed / total * 100) if total > 0 else 0, 1)
+    # Use annotation to calculate completion rates in a single query
+    from django.db.models import F, ExpressionWrapper, FloatField
     
-    # Get all active attributes for the attributes tab
+    batch_ids = [batch.id for batch in benchmark_batches]
+    batch_stats = {}
+    
+    if batch_ids:
+        # Get all batch stats in one query
+        batch_data = Assessment.objects.filter(
+            benchmark_batch_id__in=batch_ids
+        ).values(
+            'benchmark_batch_id'
+        ).annotate(
+            total=Count('id'),
+            completed_count=Count('id', filter=Q(completed=True))
+        )
+        
+        # Create a lookup dictionary
+        for item in batch_data:
+            batch_id = item['benchmark_batch_id']
+            total = item['total']
+            completed = item['completed_count']
+            completion_rate = round((completed / total * 100) if total > 0 else 0, 1)
+            batch_stats[batch_id] = {
+                'total': total,
+                'completed': completed,
+                'completion_rate': completion_rate
+            }
+    
+    # Assign the stats to each batch
+    for batch in benchmark_batches:
+        stats = batch_stats.get(batch.id, {'total': 0, 'completed': 0, 'completion_rate': 0})
+        batch.completion_rate = stats['completion_rate']
+    
+    # Get all active attributes in one query
     attributes = Attribute.objects.filter(
         business=current_business,
         active=True
     ).order_by('name')
     
-    # Get all HR users for the user management tab
+    # Get all HR users in one query
     hr_users = CustomUser.objects.filter(
         is_hr=True,
         business=current_business
     ).order_by('email')
     
-    # Get recent activity (last 10 assessments created or completed)
+    # IMPORTANT: Only get the first 10 assessments instead of all and then slicing
     recent_activity = assessments[:10]
     
     context = {
-        'businesses': Business.objects.all(),
-        'hr_users_count': hr_users_count,
-        'assessments': assessments,
-        'assessments_count': assessments_count,
-        'pending_assessments_count': pending_assessments_count,
+        'businesses': Business.objects.all(),  # Consider prefetching related data if needed
+        'hr_users_count': hr_stats['hr_users_count'],
+        'assessments': recent_activity,  # Only send the 10 we need to template
+        'assessments_count': assessment_stats['assessments_count'],
+        'pending_assessments_count': assessment_stats['pending_count'],
         'benchmark_completion': benchmark_completion,
         'benchmark_batches': benchmark_batches,
         'attributes': attributes,
@@ -1216,57 +1337,93 @@ Work Force Compass Admin
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
 def benchmark_results(request, business_id):
-    """Get benchmark results, properly filtered by region"""
-    print(f"Fetching benchmark results for business {business_id}")  # Debug log
+    """Get benchmark results with database caching to reduce query load"""
     try:
         region = request.GET.get('region', 'all')
+        force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
         
-        # Start with all completed benchmark assessments
+        # Create a cache key based on business_id and region
+        cache_key = f'benchmark_results_{business_id}_{region}'
+        
+        # Try to get results from cache first (unless force refresh is requested)
+        if not force_refresh:
+            cached_results = cache.get(cache_key)
+            if cached_results is not None:
+                logger.info(f"Cache hit - returning cached results for business {business_id}, region {region}")
+                return JsonResponse({'results': cached_results})
+        
+        logger.info(f"Cache miss - calculating benchmark results for business {business_id}, region {region}")
+        
+        # Start by prefetching the QuestionResponses and QuestionPairs efficiently
         assessments_query = AssessmentResponse.objects.filter(
             assessment__business_id=business_id,
             assessment__assessment_type='benchmark',
             assessment__completed=True
+        ).select_related('assessment').prefetch_related(
+            'questionresponse_set__question_pair__attribute1',
+            'questionresponse_set__question_pair__attribute2'
         )
         
         # Apply region filter if specified
         if region != 'all':
             assessments_query = assessments_query.filter(assessment__region=region)
         
-        # Execute the query to get filtered assessment responses
-        assessments = assessments_query.select_related('assessment')
+        # Execute the query once to get filtered assessment responses
+        assessments = list(assessments_query)
         
-        # If no completed assessments, return empty results instead of error
-        if not assessments.exists():
+        # If no completed assessments, return empty results
+        if not assessments:
+            # Cache empty results for a shorter time (1 hour)
+            cache.set(cache_key, [], 3600)
             return JsonResponse({'results': []})
         
-        # Get all attributes for the business
-        attributes = Attribute.objects.filter(
+        # Get all attributes for the business in one query
+        attributes = list(Attribute.objects.filter(
             business_id=business_id,
             active=True
-        )
+        ))
         
-        # Calculate results for each attribute
+        # Use a dictionary to track attribute scores
+        attribute_scores = {attr.id: {'total': 0.0, 'count': 0, 'name': attr.name} for attr in attributes}
+        
+        # Process all assessment responses and calculate scores in one go
+        for assessment_response in assessments:
+            # Get all question responses for this assessment
+            question_responses = assessment_response.questionresponse_set.all()
+            
+            # Process each question response once
+            for question_response in question_responses:
+                question_pair = question_response.question_pair
+                
+                # Process attribute1
+                if question_pair.attribute1_id in attribute_scores:
+                    if question_response.chose_a:
+                        attribute_scores[question_pair.attribute1_id]['total'] += 1
+                    attribute_scores[question_pair.attribute1_id]['count'] += 1
+                
+                # Process attribute2
+                if question_pair.attribute2_id in attribute_scores:
+                    if not question_response.chose_a:
+                        attribute_scores[question_pair.attribute2_id]['total'] += 1
+                    attribute_scores[question_pair.attribute2_id]['count'] += 1
+        
+        # Calculate final results
         results = []
-        for attribute in attributes:
-            total_score = 0
-            responses = 0
-            
-            for assessment_response in assessments:
-                score = assessment_response.get_score_for_attribute(attribute)
-                if score is not None:
-                    total_score += float(score)  # Ensure we're working with float values
-                    responses += 1
-            
-            if responses > 0:
+        for attr_id, data in attribute_scores.items():
+            if data['count'] > 0:
                 results.append({
-                    'attribute': attribute.name,
-                    'score': round(total_score / responses, 2),  # Round to 2 decimal places
-                    'responses': responses
+                    'attribute': data['name'],
+                    'score': round((data['total'] / data['count']) * 100, 2),
+                    'responses': data['count']
                 })
+        
+        # Cache the results using timeout from settings
+        timeout = getattr(settings, 'BENCHMARK_CACHE_TIMEOUT', 86400)  # Default 1 day
+        cache.set(cache_key, results, timeout)
         
         return JsonResponse({'results': results})
     except Exception as e:
-        print(f"Error in benchmark_results: {e}")  # Debug log
+        logger.error(f"Error in benchmark_results: {e}", exc_info=True)
         return JsonResponse({
             'error': str(e),
             'results': []

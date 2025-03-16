@@ -6,7 +6,7 @@ app_name = 'baseapp'
 # Group URLs by function for better organization
 urlpatterns = [
     #util urls
-    
+    path('api/benchmark/refresh/<int:business_id>/', views.refresh_benchmark_cache, name='refresh_benchmark_cache'),
 
     #base views
     path('', views.home, name='home'),

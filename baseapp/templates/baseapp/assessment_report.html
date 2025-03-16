@@ -2,104 +2,213 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Assessment Report</title>
+    <title>Candidate Fit to Benchmark Assessment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            height: 80px;
+            width: auto;
+        }
+        .company-name {
+            color: #0066cc;
+            font-weight: bold;
+            font-size: 20px;
+            margin: 0;
+        }
+        .company-tagline {
+            color: #888;
+            font-style: italic;
+            margin: 5px 0 0 0;
+        }
+        .report-title {
+            text-align: center;
+            font-size: 24px;
+            margin: 30px 0;
+        }
+        .candidate-info {
+            margin-bottom: 30px;
+        }
+        .info-line {
+            margin: 8px 0;
+            font-size: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+        }
+        th {
+            background-color: #f2f2f2;
+            text-align: left;
+        }
+        .attribute-col {
+            color: #0066cc;
+            font-weight: bold;
+            width: 20%;
+        }
+        .definition-col {
+            font-style: italic;
+            width: 45%;
+        }
+        .score-col {
+            width: 17.5%;
+            text-align: center;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #0066cc;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+        .footer a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .footer-right {
+            text-align: right;
+        }
+    </style>
 </head>
 <body>
-    <div class="report">
-        <h1 class="report-title"><strong>Candidate Fit to Benchmark Assessment</strong></h1>
-        
-        <div class="header-info">
-            <p class="info-line">
-                <strong>Candidate Name: {{ candidate_name }} Position: {{ position }}</strong>
-            </p>
-            
-            <p class="info-line">
-                <strong>Date Completed: {{ submitted_at }} Time To Complete: {{ completion_time }}</strong>
-            </p>
-            
-            <p class="info-line">
-                <strong>Hiring Manager: {{ manager_name }} Region: {{ region }}</strong>
-            </p>
+    <div class="container">
+        <div class="header">
+            <div class="logo-container">
+                <div style="color: #FFC107; font-size: 50px; display: inline-block;">
+                    <!-- Placeholder for logo - in real implementation you'd use an actual image -->
+                    <span style="color: #FFC107; font-weight: bold;">&#9679;</span>
+                    <span style="color: #0066cc; font-weight: bold;">&#9650;</span>
+                </div>
+            </div>
+            <div class="company-info">
+                <p class="company-name">GriefLeaders™ LLC</p>
+                <p class="company-tagline">"Changing Change"</p>
+            </div>
         </div>
 
-        <table class="scores-table">
+        <h1 class="report-title">Candidate Fit to Benchmark Assessment</h1>
+        
+        <div class="candidate-info">
+            <p class="info-line"><strong>Candidate Name:</strong> {{ candidate_name }} <strong>Position:</strong> {{ position }}</p>
+            <p class="info-line"><strong>Date Completed:</strong> {{ submitted_at }} <strong>Time To Complete:</strong> {{ completion_time }}</p>
+            <p class="info-line"><strong>Hiring Manager:</strong> {{ manager_name }} <strong>Region:</strong> {{ region }}</p>
+        </div>
+
+        <table>
             <thead>
                 <tr>
-                    <th class="attribute-col"><strong>Attribute</strong></th>
-                    <th class="definition-col"><strong>Definition</strong></th>
-                    <th class="score-col"><strong>Candidate</strong></th>
-                    <th class="score-col"><strong>Benchmark</strong></th>
+                    <th class="attribute-col">Attribute</th>
+                    <th class="definition-col">Definition</th>
+                    <th class="score-col">Candidate</th>
+                    <th class="score-col">Benchmark</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>Integrity/Accountability</strong></td>
-                    <td><em>Takes responsibility for actions and is forthright, honest, and demonstrates ethical standards</em></td>
+                    <td class="attribute-col">Integrity/Accountability</td>
+                    <td class="definition-col">Takes responsibility for actions and is forthright, honest, and demonstrates ethical standards</td>
                     <td class="score-col">{{ scores.integrity.candidate_score }}</td>
                     <td class="score-col">{{ scores.integrity.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Safety</strong></td>
-                    <td><em>Adheres to, promotes, and prioritizes safety standards</em></td>
+                    <td class="attribute-col">Safety</td>
+                    <td class="definition-col">Adheres to, promotes, and prioritizes safety standards</td>
                     <td class="score-col">{{ scores.safety.candidate_score }}</td>
                     <td class="score-col">{{ scores.safety.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Work Ethic</strong></td>
-                    <td><em>Puts in the effort to deliver high-quality work</em></td>
+                    <td class="attribute-col">Work Ethic</td>
+                    <td class="definition-col">Puts in the effort to deliver high-quality work</td>
                     <td class="score-col">{{ scores.work_ethic.candidate_score }}</td>
                     <td class="score-col">{{ scores.work_ethic.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Teamwork</strong></td>
-                    <td><em>Works well in teams, promotes teamwork, and prioritizes team goals above individual accomplishments</em></td>
+                    <td class="attribute-col">Teamwork</td>
+                    <td class="definition-col">Works well in teams, promotes teamwork, and prioritizes team goals above individual accomplishments</td>
                     <td class="score-col">{{ scores.teamwork.candidate_score }}</td>
                     <td class="score-col">{{ scores.teamwork.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Customer Service</strong></td>
-                    <td><em>Goes above and beyond to ensure customer needs are met or exceeded</em></td>
+                    <td class="attribute-col">Customer Service</td>
+                    <td class="definition-col">Goes above and beyond to ensure customer needs are met or exceeded</td>
                     <td class="score-col">{{ scores.customer_service.candidate_score }}</td>
                     <td class="score-col">{{ scores.customer_service.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Goal Orientation</strong></td>
-                    <td><em>Motivated by setting and achieving challenging goals</em></td>
+                    <td class="attribute-col">Goal Orientation</td>
+                    <td class="definition-col">Motivated by setting and achieving challenging goals</td>
                     <td class="score-col">{{ scores.goal_orientation.candidate_score }}</td>
                     <td class="score-col">{{ scores.goal_orientation.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Learning Agility</strong></td>
-                    <td><em>Learns quickly in new situations and handles change well</em></td>
+                    <td class="attribute-col">Learning Agility</td>
+                    <td class="definition-col">Learns quickly in new situations and handles change well</td>
                     <td class="score-col">{{ scores.learning_agility.candidate_score }}</td>
                     <td class="score-col">{{ scores.learning_agility.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Conflict Resolution</strong></td>
-                    <td><em>Addresses conflicts directly and seeks fair and equitable resolution calmly and rationally</em></td>
+                    <td class="attribute-col">Conflict Resolution</td>
+                    <td class="definition-col">Addresses conflicts directly and seeks fair and equitable resolution calmly and rationally</td>
                     <td class="score-col">{{ scores.conflict_resolution.candidate_score }}</td>
                     <td class="score-col">{{ scores.conflict_resolution.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Self-Awareness</strong></td>
-                    <td><em>Reflects on behaviors and actions and the impact on others to improve performance and relationships</em></td>
+                    <td class="attribute-col">Self-Awareness</td>
+                    <td class="definition-col">Reflects on behaviors and actions and the impact on others to improve performance and relationships</td>
                     <td class="score-col">{{ scores.self_awareness.candidate_score }}</td>
                     <td class="score-col">{{ scores.self_awareness.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Emotional Stability/Moodiness</strong></td>
-                    <td><em>Calm and composed in stressful situations-may be resilient</em></td>
+                    <td class="attribute-col">Emotional Stability/Moodiness</td>
+                    <td class="definition-col">Calm and composed in stressful situations-may be resilient</td>
                     <td class="score-col">{{ scores.emotional_stability.candidate_score }}</td>
                     <td class="score-col">{{ scores.emotional_stability.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td><strong>Ambition</strong></td>
-                    <td><em>Driven to achieve success, career advancement, and recognition-strives to exceed expectations</em></td>
+                    <td class="attribute-col">Ambition</td>
+                    <td class="definition-col">Driven to achieve success, career advancement, and recognition-strives to exceed expectations</td>
                     <td class="score-col">{{ scores.ambition.candidate_score }}</td>
                     <td class="score-col">{{ scores.ambition.benchmark_score }}</td>
                 </tr>
             </tbody>
         </table>
+
+        <div class="footer">
+            <div class="footer-left">
+                <a href="https://www.griefleaders.com">www.griefleaders.com</a><br>
+                <a href="mailto:a.casablanca@griefleaders.com">a.casablanca@griefleaders.com</a>
+            </div>
+            <div class="footer-right">
+                Anthony and Guy Casablanca<br>
+                Co-Founders<br>
+                833-GRF-LDRS(473-5377)
+            </div>
+        </div>
     </div>
 </body>
 </html>

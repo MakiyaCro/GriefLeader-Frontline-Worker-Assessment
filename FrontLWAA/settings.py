@@ -232,5 +232,20 @@ WEBPACK_LOADER = {
     }
 }
 
+# Simple database caching configuration - no additional add-ons needed
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache_table',
+    }
+}
+
+# Cache timeout for benchmark results (24 hours by default)
+BENCHMARK_CACHE_TIMEOUT = int(os.environ.get('BENCHMARK_CACHE_TIMEOUT', 86400))
+
+# For Heroku's ephemeral filesystem, use /tmp for temporary files
+TEMP_REPORT_DIR = '/tmp/assessment_reports'
+os.makedirs(TEMP_REPORT_DIR, exist_ok=True)
+
 # Call django_heroku settings with staticfiles=False
 django_heroku.settings(locals(), staticfiles=False)
