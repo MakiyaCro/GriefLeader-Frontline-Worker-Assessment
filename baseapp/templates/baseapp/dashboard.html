@@ -5,9 +5,21 @@
 <div class="container py-4">
     <!-- Header Section -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2>HR Dashboard</h2>
-            <p class="text-muted">{{ request.user.business.name }}</p>
+        <div class="d-flex align-items-center">
+            {% if request.user.business.logo %}
+            <div class="me-3">
+                <img src="{{ request.user.business.logo.url }}" alt="{{ request.user.business.name }} Logo" 
+                     style="height: 50px; max-width: 200px; object-fit: contain;">
+            </div>
+            {% endif %}
+            <div>
+                <h2>Hiring Manager Dashboard</h2>
+                <p class="text-muted" 
+                   {% if request.user.business.primary_color %}
+                   style="color: {{ request.user.business.primary_color }} !important;"
+                   {% endif %}
+                >{{ request.user.business.name }}</p>
+            </div>
         </div>
         <a href="{% url 'baseapp:create_assessment' %}" class="btn btn-primary">
             <i class="bi bi-plus-circle me-2"></i>Create New Assessment
