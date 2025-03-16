@@ -188,7 +188,7 @@ class SecurityHeadersMiddleware:
         response['Content-Security-Policy'] = "default-src 'self'; " \
                                              "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com; " \
                                              "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " \
-                                             "img-src 'self' data:; " \
+                                             "img-src 'self' data: https://res.cloudinary.com; " \
                                              "font-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " \
                                              "frame-ancestors 'self'; " \
                                              "form-action 'self'"
