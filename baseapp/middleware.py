@@ -20,7 +20,8 @@ class SecurityMiddleware:
             re.compile(r'/vendor/'),            # Common vendor paths
             re.compile(r'/admin\.php'),         # Admin PHP files
             re.compile(r'\.(git|svn|htaccess)'),# Hidden files
-            re.compile(r'/(shell|hack|upload)'),# Common attack paths
+            # Modified to exclude our legitimate upload endpoints
+            re.compile(r'/(shell|hack)'),       # Common attack paths (removed 'upload')
             re.compile(r'/[0-9a-f]{32}\.php$'), # MD5 hashed PHP files
         ]
         
@@ -41,13 +42,43 @@ class SecurityMiddleware:
         # Threshold for blocking IPs (X suspicious requests in Y seconds)
         self.block_threshold = getattr(settings, 'SECURITY_BLOCK_THRESHOLD', 5)
         
+        # Whitelisted paths that should never be considered suspicious
+        self.whitelisted_paths = [
+            # Base paths
+            r'^/$',
+            r'^/login/',
+            r'^/logout/',
+            r'^/dashboard/',
+            r'^/static/',
+            r'^/media/',
+            r'^/admin/',
+            r'^/password-reset/',
+            r'^/assessment/',
+            r'^/thank-you/',
+            r'^/create/',
+            # API paths
+            r'^/api/businesses/\d+/upload-logo/',   # Business logo upload
+            r'^/api/businesses/\d+/upload-template/', # Assessment template upload
+            r'^/api/businesses/',
+            r'^/api/hr-users/',
+            r'^/api/managers/',
+            r'^/api/question-pairs/',
+            r'^/api/attributes/',
+            r'^/api/benchmark/',
+            r'^/api/admin/',
+            # Add any other legitimate paths in your application
+        ]
+        
+        # Compile the whitelist patterns
+        self.whitelisted_patterns = [re.compile(pattern) for pattern in self.whitelisted_paths]
+        
     def __call__(self, request):
         # Skip middleware in debug mode if configured to do so
         if getattr(settings, 'BYPASS_SECURITY_MIDDLEWARE_IN_DEBUG', False) and settings.DEBUG:
             return self.get_response(request)
-            
-        # Skip for static files and normal site URLs
-        if request.path.startswith('/static/') or request.path == '/' or request.path == '/login/' or request.path.startswith('/admin/'):
+        
+        # Check if the path is whitelisted
+        if self._is_whitelisted_path(request.path):
             return self.get_response(request)
             
         client_ip = self._get_client_ip(request)
@@ -76,6 +107,13 @@ class SecurityMiddleware:
         # Proceed with the request
         return self.get_response(request)
     
+    def _is_whitelisted_path(self, path):
+        """Check if the path is in our whitelist of legitimate paths"""
+        for pattern in self.whitelisted_patterns:
+            if pattern.match(path):
+                return True
+        return False
+    
     def _get_client_ip(self, request):
         """Get the client IP address accounting for proxies"""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -89,10 +127,6 @@ class SecurityMiddleware:
     def _is_suspicious_request(self, request):
         """Check if this request matches known suspicious patterns"""
         path = request.path.lower()
-        
-        # Skip checking for common site paths (add more as needed)
-        if path == '/' or path == '/login/' or path.startswith('/static/') or path.startswith('/admin/'):
-            return False
         
         # Check path against suspicious patterns
         for pattern in self.suspicious_patterns:
