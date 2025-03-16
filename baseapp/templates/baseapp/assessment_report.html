@@ -14,18 +14,18 @@
             width: 100%;
             max-width: 1000px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 10px;
         }
         .header {
             border-bottom: 2px solid #0066cc;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .logo {
-            height: 80px;
+            height: 60px;
             width: auto;
         }
         .company-name {
@@ -37,28 +37,35 @@
         .company-tagline {
             color: #888;
             font-style: italic;
-            margin: 5px 0 0 0;
+            margin: 2px 0 0 0;
         }
         .report-title {
             text-align: center;
-            font-size: 24px;
-            margin: 30px 0;
+            font-size: 22px;
+            margin: 15px 0;
+            font-weight: bold;
         }
         .candidate-info {
-            margin-bottom: 30px;
+            margin-bottom: 15px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
         }
         .info-line {
-            margin: 8px 0;
-            font-size: 15px;
+            margin: 2px 0;
+            font-size: 14px;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 10px;
         }
         th, td {
             border: 1px solid #ddd;
-            padding: 12px;
+            padding: 6px 8px;
+            font-size: 13px;
         }
         th {
             background-color: #f2f2f2;
@@ -68,22 +75,25 @@
             color: #0066cc;
             font-weight: bold;
             width: 20%;
+            font-size: 13px;
         }
         .definition-col {
             font-style: italic;
             width: 45%;
+            font-size: 12px;
+            line-height: 1.3;
         }
         .score-col {
             width: 17.5%;
             text-align: center;
         }
         .footer {
-            margin-top: 40px;
-            padding-top: 20px;
+            margin-top: 15px;
+            padding-top: 10px;
             border-top: 2px solid #0066cc;
             display: flex;
             justify-content: space-between;
-            font-size: 14px;
+            font-size: 12px;
             color: #666;
         }
         .footer a {
@@ -99,7 +109,7 @@
     <div class="container">
         <div class="header">
             <div class="logo-container">
-                <div style="color: #FFC107; font-size: 50px; display: inline-block;">
+                <div style="color: #FFC107; font-size: 40px; display: inline-block;">
                     <!-- Placeholder for logo - in real implementation you'd use an actual image -->
                     <span style="color: #FFC107; font-weight: bold;">&#9679;</span>
                     <span style="color: #0066cc; font-weight: bold;">&#9650;</span>
@@ -114,9 +124,14 @@
         <h1 class="report-title">Candidate Fit to Benchmark Assessment</h1>
         
         <div class="candidate-info">
-            <p class="info-line"><strong>Candidate Name:</strong> {{ candidate_name }} <strong>Position:</strong> {{ position }}</p>
-            <p class="info-line"><strong>Date Completed:</strong> {{ submitted_at }} <strong>Time To Complete:</strong> {{ completion_time }}</p>
-            <p class="info-line"><strong>Hiring Manager:</strong> {{ manager_name }} <strong>Region:</strong> {{ region }}</p>
+            <div class="info-grid">
+                <p class="info-line"><strong>Candidate Name:</strong> {{ candidate_name }}</p>
+                <p class="info-line"><strong>Position:</strong> {{ position }}</p>
+                <p class="info-line"><strong>Date Completed:</strong> {{ submitted_at }}</p>
+                <p class="info-line"><strong>Time To Complete:</strong> {{ completion_time }}</p>
+                <p class="info-line"><strong>Hiring Manager:</strong> {{ manager_name }}</p>
+                <p class="info-line"><strong>Region:</strong> {{ region }}</p>
+            </div>
         </div>
 
         <table>
