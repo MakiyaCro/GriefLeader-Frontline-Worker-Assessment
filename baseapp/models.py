@@ -2,12 +2,13 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.crypto import get_random_string
 from django.core.validators import FileExtensionValidator
+from cloudinary.models import CloudinaryField
 
 class Business(models.Model):
     """Represents a business/organization using the platform"""
     name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
-    logo = models.ImageField(upload_to='business_logos/', null=True, blank=True)
+    logo = CloudinaryField('logo', null=True, blank=True, folder='business_logos')
     primary_color = models.CharField(max_length=7, default="#000000")  # Hex color code
     created_at = models.DateTimeField(auto_now_add=True)
     active = models.BooleanField(default=True)

@@ -770,6 +770,7 @@ def business_detail(request, pk):
 @require_http_methods(["POST"])
 @user_passes_test(is_admin)
 def upload_business_logo(request, business_id):
+    """Upload a business logo to Cloudinary"""
     try:
         business = Business.objects.get(pk=business_id)
         
@@ -786,21 +787,24 @@ def upload_business_logo(request, business_id):
         if logo_file.size > 2 * 1024 * 1024:
             return JsonResponse({"error": "Logo file size must be under 2MB"}, status=400)
         
-        # If there's an existing logo, delete it
-        if business.logo:
-            business.logo.delete(save=False)
-        
+        # Assign the new logo file - CloudinaryField handles the upload and old file deletion
         business.logo = logo_file
         business.save()
         
+        # Get the URL of the uploaded logo
+        logo_url = business.logo.url
+        
         return JsonResponse({
             "message": "Logo uploaded successfully",
-            "logo_url": business.logo.url
+            "logo_url": logo_url
         })
         
-    except Business.DoesNotExist:
-        return JsonResponse({"error": "Business not found"}, status=404)
     except Exception as e:
+        # Log the error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error uploading logo: {str(e)}", exc_info=True)
+        
         return JsonResponse({"error": f"Error uploading logo: {str(e)}"}, status=500)
 
 #--hr

@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 import dj_database_url
 from urllib.parse import urlparse
 import django_heroku
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 import os
 
 load_dotenv()
@@ -54,6 +57,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap5',
     'webpack_loader',
+    'cloudinary',
 ]
 
 MIDDLEWARE = [
@@ -162,7 +166,27 @@ DEFAULT_FROM_EMAIL = 'info@workforcecompass.com'
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
-# Media files
+# Cloudinary configuration
+cloudinary_url = os.environ.get('CLOUDINARY_URL')
+if cloudinary_url:
+    # This uses the CLOUDINARY_URL environment variable set by the Heroku add-on
+    cloudinary.config(cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+                     api_key=os.environ.get('CLOUDINARY_API_KEY'),
+                     api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+                     secure=True)
+else:
+    # Fallback for local development if needed
+    cloudinary.config(
+        cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+        api_key=os.environ.get('CLOUDINARY_API_KEY', ''),
+        api_secret=os.environ.get('CLOUDINARY_API_SECRET', ''),
+        secure=True
+    )
+
+# File Storage Configuration
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# Media files (for local development)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -173,9 +197,6 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'baseapp', 'static'),
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 REPORTS_DIR = os.path.join(MEDIA_ROOT, 'assessment_reports')
 os.makedirs(REPORTS_DIR, exist_ok=True)
@@ -217,6 +238,11 @@ LOGGING = {
         'weasyprint': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
+            'propagate': True,
+        },
+        'cloudinary': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
             'propagate': True,
         },
     },
