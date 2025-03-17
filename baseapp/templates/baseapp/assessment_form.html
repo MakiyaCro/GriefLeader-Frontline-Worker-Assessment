@@ -4,7 +4,22 @@
 {% block content %}
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Create New Assessment</h2>
+        <div class="d-flex align-items-center">
+            <div>
+                <h2 class="mb-0">Create New Assessment</h2>
+                <p class="text-muted mb-0" 
+                   {% if request.user.business.primary_color %}
+                   style="color: {{ request.user.business.primary_color }} !important;"
+                   {% endif %}
+                >{{ request.user.business.name }}</p>
+            </div>
+            {% if request.user.business.logo %}
+            <div class="ms-3">
+                <img src="{{ request.user.business.logo.url }}" alt="{{ request.user.business.name }} Logo" 
+                     style="height: 50px; max-width: 150px; object-fit: contain;">
+            </div>
+            {% endif %}
+        </div>
         <a href="{% url 'baseapp:dashboard' %}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
         </a>
