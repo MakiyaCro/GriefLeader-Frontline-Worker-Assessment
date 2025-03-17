@@ -7,6 +7,9 @@ import logging
 from ..models import Attribute, AssessmentResponse
 from pathlib import Path
 import sys
+import base64
+import requests
+from io import BytesIO
 
 # Add direct print statements for debugging
 def get_benchmark_score_for_attribute(business, attribute):
@@ -31,6 +34,65 @@ def get_benchmark_score_for_attribute(business, attribute):
     
     return (total_score / responses) if responses > 0 else None
 
+
+def get_logo_base64(logo_field):
+    """
+    Convert a logo file to base64 for embedding directly in HTML.
+    This avoids path resolution issues in WeasyPrint.
+    """
+    if not logo_field:
+        return None
+    
+    try:
+        # Get the URL
+        url = logo_field.url
+        
+        # For Cloudinary URLs, fetch the image content
+        if url.startswith('http'):
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                image_content = response.content
+                # Determine content type from the URL or response headers
+                content_type = response.headers.get('Content-Type', 'image/png')
+            else:
+                print(f"Failed to fetch logo from URL: {url}, status: {response.status_code}")
+                return None
+        else:
+            # For local files, read the file content
+            try:
+                # If it's a relative URL, convert to absolute path
+                if url.startswith('/media/'):
+                    file_path = os.path.join(settings.MEDIA_ROOT, url.replace('/media/', ''))
+                else:
+                    file_path = os.path.join(settings.BASE_DIR, url.lstrip('/'))
+                
+                # Read the file
+                with open(file_path, 'rb') as f:
+                    image_content = f.read()
+                
+                # Determine content type from file extension
+                ext = os.path.splitext(file_path)[1].lower()
+                content_types = {
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.gif': 'image/gif',
+                    '.svg': 'image/svg+xml'
+                }
+                content_type = content_types.get(ext, 'image/png')
+            except Exception as e:
+                print(f"Error reading logo file: {str(e)}")
+                return None
+        
+        # Encode the image content as base64
+        encoded = base64.b64encode(image_content).decode('utf-8')
+        return f"data:{content_type};base64,{encoded}"
+        
+    except Exception as e:
+        print(f"Error processing logo: {str(e)}")
+        return None
+
+
 def generate_assessment_report(assessment_response):
     """
     Generate assessment report using HTML template and WeasyPrint.
@@ -38,6 +100,7 @@ def generate_assessment_report(assessment_response):
     try:
         # Get assessment data
         assessment = assessment_response.assessment
+        business = assessment.business
         
         completion_time = assessment_response.submitted_at - assessment.created_at
         
@@ -86,8 +149,13 @@ def generate_assessment_report(assessment_response):
                 print(f"WARNING: No match found for {original_name}")
                 print(f"Available keys: {list(scores.keys())}")
         
-        # Prepare context
+        # Get business logo as base64 data URL
+        business_logo = get_logo_base64(business.logo) if business.logo else None
+        print(f"Business logo processed: {'Yes' if business_logo else 'No'}")
+        
+        # Prepare context with business branding
         context = {
+            # Candidate info
             'candidate_name': assessment.candidate_name,
             'position': assessment.position,
             'submitted_at': assessment_response.submitted_at.strftime('%Y-%m-%d'),
@@ -95,7 +163,17 @@ def generate_assessment_report(assessment_response):
             'manager_name': assessment.manager_name,
             'region': assessment.region,
             'scores': scores,
+            
+            # Business branding
+            'business_name': business.name,
+            'business_color': business.primary_color or "#0066cc",
+            'business_logo': business_logo,
+            'business_tagline': "Candidate Assessment",
+            'business_phone': "",  # You can add a phone field to the Business model if needed
         }
+        
+        # Debug output
+        print(f"Report context - Business name: {context['business_name']}")
         
         # Setup output paths
         reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
@@ -120,7 +198,7 @@ def generate_assessment_report(assessment_response):
         
         try:
             # Generate PDF
-            html = HTML(filename=tmp_html_path, base_url=str(settings.BASE_DIR))
+            html = HTML(filename=tmp_html_path)
             css = CSS(string=css_string)
             
             html.write_pdf(
