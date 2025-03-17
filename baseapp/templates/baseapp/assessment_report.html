@@ -117,17 +117,11 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="logo-container">
-                {% if business_logo %}
-                <img src="{{ business_logo }}" alt="{{ business_name }} Logo" class="logo">
-                {% else %}
-                <img src="/static/images/logo.png" alt="Default Logo" class="logo">
-                {% endif %}
-            </div>
-            <div class="company-info">
-                <p class="company-name">{{ business_name|default:"Workforce Compass" }}</p>
-                <p class="company-tagline">{{ business_tagline|default:"Candidate Assessment" }}</p>
+        <div class="top-section">
+            <img src="/static/images/logo.png" alt="Company Logo" class="logo">
+            <div class="title-section">
+                <h1 class="report-title">Workforce Compass Candidate Assessment</h1>
+                <p class="subtitle">A Proprietary Product of <span style="color: #FFC107; font-weight: bold;">Grief</span><span style="color: #0066cc; font-weight: bold;">Leaders</span> <span style="color: #666; font-size: 12px;">LLC</span></p>
             </div>
         </div>
 
@@ -242,15 +236,10 @@
             </tbody>
         </table>
 
-        <div class="footer">
-            <div class="footer-left">
-                <a href="https://www.workforcecompass.com">www.workforcecompass.com</a><br>
-                <a href="mailto:info@workforcecompass.com">info@workforcecompass.com</a>
-            </div>
-            <div class="footer-right">
-                {{ business_name|default:"Workforce Compass" }}<br>
-                Candidate Assessment Tool<br>
-                {{ business_phone|default:"" }}
+         <div class="footer">
+            <div class="footer-center">
+                Anthony Casablanca<br>
+                <a href="mailto:your.email@example.com">a.casablanca@griefleaders.com</a>
             </div>
         </div>
     </div>
