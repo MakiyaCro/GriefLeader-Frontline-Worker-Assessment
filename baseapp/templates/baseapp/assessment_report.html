@@ -162,7 +162,7 @@
         <table>
             <thead>
                 <tr>
-                    <th class="attribute-col">Attribute</th>
+                    <th class="attribute-col">Primary Attributes</th>
                     <th class="definition-col">Definition</th>
                     <th class="score-col">Candidate</th>
                     <th class="score-col">Benchmark</th>
@@ -176,22 +176,10 @@
                     <td class="score-col">{{ scores.integrity.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td class="attribute-col">Safety</td>
-                    <td class="definition-col">Adheres to, promotes, and prioritizes safety standards</td>
-                    <td class="score-col">{{ scores.safety.candidate_score }}</td>
-                    <td class="score-col">{{ scores.safety.benchmark_score }}</td>
-                </tr>
-                <tr>
-                    <td class="attribute-col">Work Ethic</td>
-                    <td class="definition-col">Puts in the effort to deliver high-quality work</td>
-                    <td class="score-col">{{ scores.work_ethic.candidate_score }}</td>
-                    <td class="score-col">{{ scores.work_ethic.benchmark_score }}</td>
-                </tr>
-                <tr>
-                    <td class="attribute-col">Teamwork</td>
-                    <td class="definition-col">Works well in teams, promotes teamwork, and prioritizes team goals above individual accomplishments</td>
-                    <td class="score-col">{{ scores.teamwork.candidate_score }}</td>
-                    <td class="score-col">{{ scores.teamwork.benchmark_score }}</td>
+                    <td class="attribute-col">Learning Agility</td>
+                    <td class="definition-col">Learns quickly in new situations and handles change well</td>
+                    <td class="score-col">{{ scores.learning_agility.candidate_score }}</td>
+                    <td class="score-col">{{ scores.learning_agility.benchmark_score }}</td>
                 </tr>
                 <tr>
                     <td class="attribute-col">Customer Service</td>
@@ -200,22 +188,26 @@
                     <td class="score-col">{{ scores.customer_service.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td class="attribute-col">Goal Orientation</td>
-                    <td class="definition-col">Motivated by setting and achieving challenging goals</td>
-                    <td class="score-col">{{ scores.goal_orientation.candidate_score }}</td>
-                    <td class="score-col">{{ scores.goal_orientation.benchmark_score }}</td>
+                    <td class="attribute-col">Work Ethic</td>
+                    <td class="definition-col">Puts in the effort to deliver high-quality work</td>
+                    <td class="score-col">{{ scores.work_ethic.candidate_score }}</td>
+                    <td class="score-col">{{ scores.work_ethic.benchmark_score }}</td>
                 </tr>
+            </tbody>
+            <thead>
                 <tr>
-                    <td class="attribute-col">Learning Agility</td>
-                    <td class="definition-col">Learns quickly in new situations and handles change well</td>
-                    <td class="score-col">{{ scores.learning_agility.candidate_score }}</td>
-                    <td class="score-col">{{ scores.learning_agility.benchmark_score }}</td>
+                    <th class="attribute-col">Secondary Attributes</th>
+                    <th class="definition-col">Definition</th>
+                    <th class="score-col">Candidate</th>
+                    <th class="score-col">Benchmark</th>
                 </tr>
+            </thead>
+            <tbody>
                 <tr>
-                    <td class="attribute-col">Conflict Resolution</td>
-                    <td class="definition-col">Addresses conflicts directly and seeks fair and equitable resolution calmly and rationally</td>
-                    <td class="score-col">{{ scores.conflict_resolution.candidate_score }}</td>
-                    <td class="score-col">{{ scores.conflict_resolution.benchmark_score }}</td>
+                    <td class="attribute-col">Teamwork</td>
+                    <td class="definition-col">Works well in teams, promotes teamwork, and prioritizes team goals above individual accomplishments</td>
+                    <td class="score-col">{{ scores.teamwork.candidate_score }}</td>
+                    <td class="score-col">{{ scores.teamwork.benchmark_score }}</td>
                 </tr>
                 <tr>
                     <td class="attribute-col">Self-Awareness</td>
@@ -224,10 +216,38 @@
                     <td class="score-col">{{ scores.self_awareness.benchmark_score }}</td>
                 </tr>
                 <tr>
-                    <td class="attribute-col">Emotional Stability/Moodiness</td>
+                    <td class="attribute-col">Emotional Stability</td>
                     <td class="definition-col">Calm and composed in stressful situations-may be resilient</td>
                     <td class="score-col">{{ scores.emotional_stability.candidate_score }}</td>
                     <td class="score-col">{{ scores.emotional_stability.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td class="attribute-col">Safety</td>
+                    <td class="definition-col">Adheres to, promotes, and prioritizes safety standards</td>
+                    <td class="score-col">{{ scores.safety.candidate_score }}</td>
+                    <td class="score-col">{{ scores.safety.benchmark_score }}</td>
+                </tr>
+            </tbody>
+            <thead>
+                <tr>
+                    <th class="attribute-col">Non-critical Attributes</th>
+                    <th class="definition-col">Definition</th>
+                    <th class="score-col">Candidate</th>
+                    <th class="score-col">Benchmark</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="attribute-col">Conflict Resolution</td>
+                    <td class="definition-col">Addresses conflicts directly and seeks fair and equitable resolution calmly and rationally</td>
+                    <td class="score-col">{{ scores.conflict_resolution.candidate_score }}</td>
+                    <td class="score-col">{{ scores.conflict_resolution.benchmark_score }}</td>
+                </tr>
+                <tr>
+                    <td class="attribute-col">Goal Orientation</td>
+                    <td class="definition-col">Motivated by setting and achieving challenging goals</td>
+                    <td class="score-col">{{ scores.goal_orientation.candidate_score }}</td>
+                    <td class="score-col">{{ scores.goal_orientation.benchmark_score }}</td>
                 </tr>
                 <tr>
                     <td class="attribute-col">Ambition</td>
