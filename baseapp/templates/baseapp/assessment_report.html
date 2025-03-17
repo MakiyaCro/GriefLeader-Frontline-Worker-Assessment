@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Candidate Fit to Benchmark Assessment</title>
+    <title>Workforce Compass Candidate Assessment</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,40 +16,39 @@
             margin: 0 auto;
             padding: 10px;
         }
-        .header {
-            border-bottom: 2px solid {{ business_color|default:"#0066cc" }};
-            padding-bottom: 5px;
-            margin-bottom: 10px;
+        .top-section {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            margin-bottom: 15px;
+            padding: 10px 0;
+        }
+        .logo-container {
+            margin-right: 20px;
         }
         .logo {
             height: 50px;
             width: auto;
             display: block;
         }
-        .company-name {
-            color: {{ business_color|default:"#0066cc" }};
-            font-weight: bold;
-            font-size: 20px;
-            margin: 0;
-        }
-        .company-tagline {
-            color: #888;
-            font-style: italic;
-            margin: 2px 0 0 0;
+        .title-section {
+            flex: 1;
         }
         .report-title {
             text-align: center;
             font-size: 22px;
-            margin: 15px 0 5px 0;
+            margin: 0;
             font-weight: bold;
+            color: #0066cc;
         }
         .subtitle {
             text-align: center;
             font-size: 14px;
-            margin: 0 0 15px 0;
+            margin: 5px 0 0 0;
+        }
+        .header {
+            border-bottom: 2px solid {{ business_color|default:"#0066cc" }};
+            padding-bottom: 5px;
+            margin-bottom: 15px;
         }
         .candidate-info {
             margin-bottom: 12px;
@@ -100,9 +99,8 @@
         .footer {
             margin-top: 15px;
             padding-top: 10px;
-            border-top: 2px solid {{ business_color|default:"#0066cc" }};
-            display: flex;
-            justify-content: space-between;
+            border-top: 1px solid #ddd;
+            text-align: center;
             font-size: 12px;
             color: #666;
         }
@@ -110,22 +108,29 @@
             color: {{ business_color|default:"#0066cc" }};
             text-decoration: none;
         }
-        .footer-right {
-            text-align: right;
+        .footer-center {
+            text-align: center;
+            width: 100%;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="top-section">
-            <img src="/static/images/logo.png" alt="Company Logo" class="logo">
+            <div class="logo-container">
+                {% if business_logo %}
+                <img src="{{ business_logo }}" alt="{{ business_name }} Logo" class="logo">
+                {% else %}
+                <img src="/static/images/logo.png" alt="Default Logo" class="logo">
+                {% endif %}
+            </div>
             <div class="title-section">
                 <h1 class="report-title">Workforce Compass Candidate Assessment</h1>
                 <p class="subtitle">A Proprietary Product of <span style="color: #FFC107; font-weight: bold;">Grief</span><span style="color: #0066cc; font-weight: bold;">Leaders</span> <span style="color: #666; font-size: 12px;">LLC</span></p>
             </div>
         </div>
 
-         <div class="blue-divider"></div>
+        <div class="header"></div>
         
         <div class="candidate-info">
             <div class="info-row">
@@ -233,10 +238,10 @@
             </tbody>
         </table>
 
-         <div class="footer">
+        <div class="footer">
             <div class="footer-center">
                 Anthony Casablanca<br>
-                <a href="mailto:your.email@example.com">a.casablanca@griefleaders.com</a>
+                <a href="mailto:a.casablanca@griefleaders.com">a.casablanca@griefleaders.com</a>
             </div>
         </div>
     </div>
