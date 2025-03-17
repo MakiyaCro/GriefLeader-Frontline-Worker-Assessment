@@ -13,7 +13,26 @@
 </div>
 
 <div class="container py-4">
-    <h2 class="mb-4">Assessment for {{ assessment.position }}</h2>
+    <!-- Header with logo -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center">
+            <div>
+                <h2 class="mb-0">Assessment for {{ assessment.position }}</h2>
+                <p class="text-muted mb-0" 
+                   {% if assessment.business.primary_color %}
+                   style="color: {{ assessment.business.primary_color }} !important;"
+                   {% endif %}
+                >{{ assessment.business.name }}</p>
+            </div>
+            {% if assessment.business.logo %}
+            <div class="ms-3">
+                <img src="{{ assessment.business.logo.url }}" alt="{{ assessment.business.name }} Logo" 
+                     style="height: 50px; max-width: 150px; object-fit: contain;">
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="alert alert-info">
         <p class="mb-0">Please select the statement that best describes you for each pair.</p>
     </div>
@@ -62,7 +81,11 @@
         {% endfor %}
 
         <div class="d-grid gap-2">
-            <button type="submit" class="btn btn-primary btn-lg">Submit Assessment</button>
+            <button type="submit" class="btn btn-primary btn-lg"
+                    {% if assessment.business.primary_color %}
+                    style="background-color: {{ assessment.business.primary_color }}; border-color: {{ assessment.business.primary_color }};"
+                    {% endif %}
+            >Submit Assessment</button>
         </div>
     </form>
 </div>
@@ -101,6 +124,11 @@
             progressBar.setAttribute('aria-valuenow', percentage);
             progressBar.textContent = percentage + '%';
             questionsCompletedElement.textContent = completed;
+            
+            // Optionally update progress bar color to match business color
+            {% if assessment.business.primary_color %}
+            progressBar.style.backgroundColor = '{{ assessment.business.primary_color }}';
+            {% endif %}
         }
         
         // Add event listeners to all radio buttons
