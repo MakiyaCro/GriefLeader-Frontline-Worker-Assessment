@@ -17,7 +17,7 @@
             padding: 10px;
         }
         .header {
-            border-bottom: 2px solid #0066cc;
+            border-bottom: 2px solid {{ business_color|default:"#0066cc" }};
             padding-bottom: 5px;
             margin-bottom: 10px;
             display: flex;
@@ -30,7 +30,7 @@
             display: block;
         }
         .company-name {
-            color: #0066cc;
+            color: {{ business_color|default:"#0066cc" }};
             font-weight: bold;
             font-size: 20px;
             margin: 0;
@@ -82,7 +82,7 @@
             text-align: left;
         }
         .attribute-col {
-            color: #0066cc;
+            color: {{ business_color|default:"#0066cc" }};
             font-weight: bold;
             width: 20%;
             font-size: 13px;
@@ -100,14 +100,14 @@
         .footer {
             margin-top: 15px;
             padding-top: 10px;
-            border-top: 2px solid #0066cc;
+            border-top: 2px solid {{ business_color|default:"#0066cc" }};
             display: flex;
             justify-content: space-between;
             font-size: 12px;
             color: #666;
         }
         .footer a {
-            color: #0066cc;
+            color: {{ business_color|default:"#0066cc" }};
             text-decoration: none;
         }
         .footer-right {
@@ -119,18 +119,22 @@
     <div class="container">
         <div class="header">
             <div class="logo-container">
-                <img src="/static/images/logo.png" alt="Company Logo" class="logo">
+                {% if business_logo %}
+                <img src="{{ business_logo }}" alt="{{ business_name }} Logo" class="logo">
+                {% else %}
+                <img src="/static/images/logo.png" alt="Default Logo" class="logo">
+                {% endif %}
             </div>
             <div class="company-info">
-                <p class="company-name">GriefLeaders™ LLC</p>
-                <p class="company-tagline">"Changing Change"</p>
+                <p class="company-name">{{ business_name|default:"Workforce Compass" }}</p>
+                <p class="company-tagline">{{ business_tagline|default:"Candidate Assessment" }}</p>
             </div>
         </div>
 
         <h1 class="report-title">
-            <span style="color: #0066cc;">Workforce Compass Candidate Assessment</span>
+            <span style="color: {{ business_color|default:'#0066cc' }};">Workforce Compass Candidate Assessment</span>
         </h1>
-        <p class="subtitle">A Proprietary Product of <span style="color: #FFC107; font-weight: bold;">Grief</span><span style="color: #0066cc; font-weight: bold;">Leaders</span> <span style="color: #666; font-size: 12px;">LLC</span></p>
+        <p class="subtitle">A Proprietary Assessment for <span style="font-weight: bold;">{{ business_name|default:"Your Organization" }}</span></p>
         
         <div class="candidate-info">
             <div class="info-row">
@@ -240,13 +244,13 @@
 
         <div class="footer">
             <div class="footer-left">
-                <a href="https://www.griefleaders.com">www.griefleaders.com</a><br>
-                <a href="mailto:a.casablanca@griefleaders.com">a.casablanca@griefleaders.com</a>
+                <a href="https://www.workforcecompass.com">www.workforcecompass.com</a><br>
+                <a href="mailto:info@workforcecompass.com">info@workforcecompass.com</a>
             </div>
             <div class="footer-right">
-                Anthony and Guy Casablanca<br>
-                Co-Founders<br>
-                833-GRF-LDRS(473-5377)
+                {{ business_name|default:"Workforce Compass" }}<br>
+                Candidate Assessment Tool<br>
+                {{ business_phone|default:"" }}
             </div>
         </div>
     </div>
