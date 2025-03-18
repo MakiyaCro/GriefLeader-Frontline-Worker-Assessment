@@ -76,21 +76,23 @@ def get_logo_base64(logo_field):
     """
     Convert a logo file to base64 for embedding directly in HTML.
     This avoids path resolution issues in WeasyPrint.
+    Fixed for Cloudinary resources.
     """
     if not logo_field:
         return None
     
-    # Create a cache key for the logo
-    cache_key = f'logo_base64_{logo_field.name}'
-    
-    # Check if we have a cached version
-    cached_logo = cache.get(cache_key)
-    if cached_logo is not None:
-        return cached_logo
-    
     try:
-        # Get the URL
+        # Get the URL - this works for both Cloudinary and local files
         url = logo_field.url
+        
+        # Create a cache key based on the URL instead of name
+        # This works for both Cloudinary and local files
+        cache_key = f'logo_base64_{url}'
+        
+        # Check if we have a cached version
+        cached_logo = cache.get(cache_key)
+        if cached_logo is not None:
+            return cached_logo
         
         # For Cloudinary URLs, fetch the image content
         if url.startswith('http'):
@@ -139,7 +141,7 @@ def get_logo_base64(logo_field):
         return data_url
         
     except Exception as e:
-        print(f"Error processing logo: {str(e)}")
+        logger.error(f"Error processing logo: {str(e)}")
         return None
 
 
