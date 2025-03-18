@@ -265,6 +265,12 @@ def take_assessment(request, unique_link):
         messages.error(request, 'This assessment has already been completed.')
         return render(request, 'baseapp/assessment_closed.html')
     
+    # Record first access time if not already set
+    if not assessment.first_accessed_at:
+        assessment.first_accessed_at = timezone.now()
+        assessment.save(update_fields=['first_accessed_at'])
+        logger.info(f"First access recorded for assessment ID: {assessment.id}")
+    
     # Get all active question pairs
     question_pairs = QuestionPair.objects.filter(
         business=assessment.business,
@@ -275,6 +281,14 @@ def take_assessment(request, unique_link):
         form = AssessmentResponseForm(request.POST, question_pairs=question_pairs)
         if form.is_valid():
             try:
+                # Calculate completion time
+                now = timezone.now()
+                if assessment.first_accessed_at:
+                    completion_time_seconds = int((now - assessment.first_accessed_at).total_seconds())
+                else:
+                    # Fallback to created_at time if first_accessed_at is not available
+                    completion_time_seconds = int((now - assessment.created_at).total_seconds())
+                
                 # Create the assessment response
                 assessment_response = AssessmentResponse.objects.create(
                     assessment=assessment
@@ -299,8 +313,11 @@ def take_assessment(request, unique_link):
                 
                 # Mark assessment as completed
                 assessment.completed = True
-                assessment.completed_at = timezone.now()
-                assessment.save()
+                assessment.completed_at = now
+                assessment.completion_time_seconds = completion_time_seconds
+                assessment.save(update_fields=['completed', 'completed_at', 'completion_time_seconds'])
+
+                logger.info(f"Assessment completed in {completion_time_seconds} seconds: ID {assessment.id}")
 
                 # Invalidate benchmark cache if this is a benchmark assessment
                 if assessment.assessment_type == 'benchmark':
@@ -1511,7 +1528,10 @@ def business_assessments(request, business_id):
             'created_at',
             'completed',
             'unique_link',
-            'assessment_type'  # Added this field
+            'assessment_type',
+            'first_accessed_at',
+            'completion_time_seconds',
+            'completed_at'
         )
         
         return JsonResponse({

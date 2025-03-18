@@ -144,6 +144,8 @@ class Assessment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+    first_accessed_at = models.DateTimeField(null=True, blank=True)
+    completion_time_seconds = models.IntegerField(null=True, blank=True)
     email_sent = models.BooleanField(default=False)
 
     managers = models.ManyToManyField(
@@ -167,6 +169,35 @@ class Assessment(models.Model):
     
     def __str__(self):
         return f"Assessment for {self.candidate_name}"
+    
+    @property
+    def formatted_completion_time(self):
+        """Return a human-readable completion time"""
+        if self.completion_time_seconds is None:
+            return "Not completed"
+            
+        seconds = self.completion_time_seconds
+        
+        # Convert to hours, minutes, seconds
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        
+        if hours > 0:
+            return f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+        elif minutes > 0:
+            return f"{int(minutes)}m {int(seconds)}s"
+        else:
+            return f"{int(seconds)}s"
+        
+    @property
+    def status_display(self):
+        """Return a status string for the assessment"""
+        if self.completed:
+            return "Completed"
+        elif self.first_accessed_at:
+            return "In Progress"
+        else:
+            return "Not Started"
 
     class Meta:
         ordering = ['-created_at']

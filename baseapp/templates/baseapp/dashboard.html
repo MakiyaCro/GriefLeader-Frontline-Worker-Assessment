@@ -60,6 +60,7 @@
                                 <th>Position</th>
                                 <th>Date Created</th>
                                 <th>Status</th>
+                                <th>Access Information</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -72,8 +73,26 @@
                                     <td>
                                         {% if assessment.completed %}
                                             <span class="badge bg-success">Completed</span>
+                                        {% elif assessment.first_accessed_at %}
+                                            <span class="badge bg-info">In Progress</span>
                                         {% else %}
-                                            <span class="badge bg-warning">Pending</span>
+                                            <span class="badge bg-warning">Not Started</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if assessment.first_accessed_at %}
+                                            <div class="small">
+                                                <div class="mb-1">
+                                                    <i class="bi bi-eye me-1"></i> First accessed: {{ assessment.first_accessed_at|date:"M d, Y H:i" }} EST
+                                                </div>
+                                                {% if assessment.completion_time_seconds %}
+                                                    <div>
+                                                        <i class="bi bi-clock me-1"></i> Completion time: {{ assessment.formatted_completion_time }}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">Not accessed yet</span>
                                         {% endif %}
                                     </td>
                                     <td>
