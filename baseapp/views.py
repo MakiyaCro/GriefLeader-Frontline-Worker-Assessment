@@ -1724,70 +1724,78 @@ Best regards,
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
 def admin_preview_assessment(request, assessment_id):
-    """Admin view to preview assessment report PDF"""
+    """Admin view to preview assessment report PDF with optimization"""
     try:
+        force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
+        
         # Get assessment and verify it exists
         assessment = get_object_or_404(Assessment, id=assessment_id)
         
         if not assessment.completed:
-            print(f"Assessment not completed")
+            logger.warning(f"Attempted to preview incomplete assessment: {assessment_id}")
             raise Http404("Assessment not completed")
         
         # Get assessment response
         response = get_object_or_404(AssessmentResponse, assessment=assessment)
         
-        # Get all attributes for this assessment
-        attributes = Attribute.objects.filter(
-            business=assessment.business,
-            active=True
-        ).order_by('order')
-        
-        for attr in attributes:
-            score = response.get_score_for_attribute(attr)
-        
-        # Define the report path
-        reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
-        pdf_filename = f'assessment_report_{assessment.unique_link}.pdf'
-        pdf_path = os.path.join(reports_dir, pdf_filename)
-        
         try:
-            # Generate new PDF
-            pdf_path = generate_assessment_report(response)
+            # Generate PDF with caching - pass force_refresh parameter
+            pdf_path = generate_assessment_report(response, force_refresh=force_refresh)
             
             if not os.path.exists(pdf_path):
+                logger.error(f"Generated PDF not found at {pdf_path}")
                 raise FileNotFoundError(f"Generated PDF not found at {pdf_path}")
             
             # Return PDF response
             pdf_file = open(pdf_path, 'rb')
-            response = FileResponse(pdf_file, content_type='application/pdf')
-            response['Content-Disposition'] = f'inline; filename="{pdf_filename}"'
-            response['X-Frame-Options'] = 'SAMEORIGIN'
-            return response
+            pdf_response = FileResponse(pdf_file, content_type='application/pdf')
+            pdf_response['Content-Disposition'] = f'inline; filename="assessment_report_{assessment.candidate_name}.pdf"'
+            pdf_response['X-Frame-Options'] = 'SAMEORIGIN'
+            return pdf_response
             
         except Exception as e:
-            print(f"Error generating PDF: {str(e)}")
+            logger.error(f"Error generating PDF: {str(e)}")
             raise
             
     except Exception as e:
-        print(f"Error in preview: {str(e)}")
+        logger.error(f"Error in preview: {str(e)}")
         raise Http404(f"Error generating PDF report: {str(e)}")
     
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
 def admin_download_assessment(request, assessment_id):
-    """Admin view to download assessment report"""
-    assessment = get_object_or_404(Assessment, id=assessment_id)
+    """Admin view to download assessment report with optimization"""
     try:
-        response = AssessmentResponse.objects.get(assessment=assessment)
-        pdf_path = generate_assessment_report(response)
-        response = FileResponse(
-            open(pdf_path, 'rb'), 
-            content_type='application/pdf'
-        )
-        response['Content-Disposition'] = f'attachment; filename="assessment_report_{assessment.candidate_name}.pdf"'
-        return response
+        force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
+        assessment = get_object_or_404(Assessment, id=assessment_id)
+        
+        if not assessment.completed:
+            logger.warning(f"Attempted to download incomplete assessment: {assessment_id}")
+            raise Http404("Assessment not completed")
+            
+        response = get_object_or_404(AssessmentResponse, assessment=assessment)
+        
+        # Generate PDF with caching - pass force_refresh parameter
+        pdf_path = generate_assessment_report(response, force_refresh=force_refresh)
+        
+        if not os.path.exists(pdf_path):
+            logger.error(f"Generated PDF not found at {pdf_path}")
+            raise FileNotFoundError(f"Generated PDF not found at {pdf_path}")
+        
+        # Return PDF for download
+        pdf_file = open(pdf_path, 'rb')
+        file_response = FileResponse(pdf_file, content_type='application/pdf')
+        clean_name = "".join(c for c in assessment.candidate_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        filename = f'Assessment_Report_{clean_name}.pdf'
+        file_response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return file_response
+        
     except AssessmentResponse.DoesNotExist:
+        logger.error(f"Assessment response not found for assessment: {assessment_id}")
         raise Http404("Assessment response not found")
+    except Exception as e:
+        logger.error(f"Error downloading assessment report: {str(e)}")
+        raise Http404(f"Error downloading assessment report: {str(e)}")
 
 @require_http_methods(["POST"])
 @user_passes_test(is_admin)
@@ -2290,60 +2298,71 @@ Best regards,
 @login_required
 @user_passes_test(is_hr_user)
 def preview_assessment_report(request, assessment_id):
-    """
-    View to preview assessment report PDF. 
-    """
-    assessment = get_object_or_404(Assessment, id=assessment_id)
-    if not assessment.completed:
-        raise Http404("Assessment not completed")
-        
-    response = get_object_or_404(AssessmentResponse, assessment=assessment)
-    
-    # Define the report path
-    reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
-    pdf_filename = f'assessment_report_{assessment.unique_link}.pdf'
-    pdf_path = os.path.join(reports_dir, pdf_filename)
-    
+    """HR user view to preview assessment report PDF with optimization"""
     try:
-        # Open and return the PDF file
-        pdf_file = open(pdf_path, 'rb')
-        response = FileResponse(pdf_file, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="{pdf_filename}"'
+        force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
+        assessment = get_object_or_404(Assessment, id=assessment_id)
         
-        # Allow iframe display
-        response['X-Frame-Options'] = 'SAMEORIGIN'
+        if not assessment.completed:
+            messages.error(request, "This assessment has not been completed yet.")
+            return redirect('baseapp:dashboard')
+            
+        response = get_object_or_404(AssessmentResponse, assessment=assessment)
         
-        return response
-        
-    except FileNotFoundError:
-        # If PDF doesn't exist, generate it
         try:
-            from .utils.report_generator import generate_assessment_report
-            pdf_path = generate_assessment_report(response)
+            # Generate PDF with caching - pass force_refresh parameter
+            pdf_path = generate_assessment_report(response, force_refresh=force_refresh)
+            
+            if not os.path.exists(pdf_path):
+                logger.error(f"Generated PDF not found at {pdf_path}")
+                raise FileNotFoundError(f"Generated PDF not found at {pdf_path}")
+            
+            # Return PDF response
             pdf_file = open(pdf_path, 'rb')
-            response = FileResponse(pdf_file, content_type='application/pdf')
-            response['Content-Disposition'] = f'inline; filename="{pdf_filename}"'
-            
-            # Allow iframe display
-            response['X-Frame-Options'] = 'SAMEORIGIN'
-            
-            return response
+            pdf_response = FileResponse(pdf_file, content_type='application/pdf')
+            pdf_response['Content-Disposition'] = f'inline; filename="assessment_report_{assessment.candidate_name}.pdf"'
+            pdf_response['X-Frame-Options'] = 'SAMEORIGIN'
+            return pdf_response
             
         except Exception as e:
-            print(f"Error generating PDF: {str(e)}")
-            raise Http404("Error generating PDF report")
+            logger.error(f"Error generating PDF in HR preview: {str(e)}")
+            messages.error(request, "There was an error generating the PDF report. Please try again later.")
+            return redirect('baseapp:dashboard')
+            
+    except Exception as e:
+        logger.error(f"Error in HR preview: {str(e)}")
+        messages.error(request, "There was an error accessing the assessment. Please try again later.")
+        return redirect('baseapp:dashboard')
 
 @login_required
 @user_passes_test(is_hr_user)
 def download_assessment_report(request, assessment_id):
-    assessment = get_object_or_404(Assessment, id=assessment_id, created_by=request.user)
+    """HR user view to download assessment report with optimization"""
     try:
-        response = AssessmentResponse.objects.get(assessment=assessment)
-        pdf_path = generate_assessment_report(response)
-        response = FileResponse(open(pdf_path, 'rb'), 
-                              content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="assessment_report_{assessment.candidate_name}.pdf"'
-        return response
+        force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
+        assessment = get_object_or_404(Assessment, id=assessment_id)
+        
+        if not assessment.completed:
+            messages.error(request, "This assessment has not been completed yet.")
+            return redirect('baseapp:dashboard')
+            
+        response = get_object_or_404(AssessmentResponse, assessment=assessment)
+        
+        # Generate PDF with caching - pass force_refresh parameter
+        pdf_path = generate_assessment_report(response, force_refresh=force_refresh)
+        
+        # Return PDF for download
+        pdf_file = open(pdf_path, 'rb')
+        file_response = FileResponse(pdf_file, content_type='application/pdf')
+        clean_name = "".join(c for c in assessment.candidate_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        filename = f'Assessment_Report_{clean_name}.pdf'
+        file_response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return file_response
+        
     except AssessmentResponse.DoesNotExist:
-        messages.error(request, 'Assessment response not found.')
+        messages.error(request, "Assessment response not found.")
+        return redirect('baseapp:dashboard')
+    except Exception as e:
+        logger.error(f"Error downloading HR assessment report: {str(e)}")
+        messages.error(request, "There was an error downloading the report. Please try again later.")
         return redirect('baseapp:dashboard')

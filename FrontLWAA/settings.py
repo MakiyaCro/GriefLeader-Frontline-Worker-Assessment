@@ -273,5 +273,9 @@ BENCHMARK_CACHE_TIMEOUT = int(os.environ.get('BENCHMARK_CACHE_TIMEOUT', 86400))
 TEMP_REPORT_DIR = '/tmp/assessment_reports'
 os.makedirs(TEMP_REPORT_DIR, exist_ok=True)
 
+BENCHMARK_CACHE_TIMEOUT = int(os.environ.get('BENCHMARK_CACHE_TIMEOUT', 86400))  # 24 hours
+REPORT_CACHE_TIMEOUT = int(os.environ.get('REPORT_CACHE_TIMEOUT', 86400))       # 24 hours
+LOGO_CACHE_TIMEOUT = int(os.environ.get('LOGO_CACHE_TIMEOUT', 604800))  
+
 # Call django_heroku settings with staticfiles=False
 django_heroku.settings(locals(), staticfiles=False)

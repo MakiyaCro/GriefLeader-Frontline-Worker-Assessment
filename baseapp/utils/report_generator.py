@@ -10,29 +10,66 @@ import sys
 import base64
 import requests
 from io import BytesIO
+from django.core.cache import cache
+import tempfile
 
-# Add direct print statements for debugging
-def get_benchmark_score_for_attribute(business, attribute):
-    """Calculate benchmark score for a specific attribute"""
+logger = logging.getLogger(__name__)
+
+def get_benchmark_scores_for_business(business):
+    """
+    Get all benchmark scores for a business in one efficient query
+    Returns a dictionary of attribute_id -> score
+    """
+    # Create a cache key for benchmark scores
+    cache_key = f'benchmark_scores_{business.id}'
+    
+    # Check if we have cached benchmark scores
+    cached_scores = cache.get(cache_key)
+    if cached_scores is not None:
+        logger.info(f"Using cached benchmark scores for business {business.id}")
+        return cached_scores
+    
+    logger.info(f"Calculating benchmark scores for business {business.id}")
+    
+    # Get all assessment responses and related data in one query
     benchmark_responses = AssessmentResponse.objects.filter(
         assessment__business=business,
         assessment__assessment_type='benchmark',
         assessment__completed=True
-    )
+    ).select_related('assessment')
     
+    # If no benchmark responses, return empty dictionary
     if not benchmark_responses.exists():
-        return None
+        logger.info(f"No benchmark responses found for business {business.id}")
+        # Cache empty results for a shorter time (1 hour)
+        cache.set(cache_key, {}, 3600)
+        return {}
+    
+    # Get all attributes for this business
+    attributes = Attribute.objects.filter(business=business, active=True)
+    
+    # Initialize scores dictionary
+    benchmark_scores = {}
+    
+    # Calculate scores for each attribute
+    for attribute in attributes:
+        total_score = 0
+        responses = 0
         
-    total_score = 0
-    responses = 0
+        for response in benchmark_responses:
+            score = response.get_score_for_attribute(attribute)
+            if score is not None:
+                total_score += score
+                responses += 1
+        
+        if responses > 0:
+            benchmark_scores[attribute.id] = total_score / responses
     
-    for response in benchmark_responses:
-        score = response.get_score_for_attribute(attribute)
-        if score is not None:
-            total_score += score
-            responses += 1
+    # Cache the scores for 24 hours (or use BENCHMARK_CACHE_TIMEOUT setting)
+    timeout = getattr(settings, 'BENCHMARK_CACHE_TIMEOUT', 86400)
+    cache.set(cache_key, benchmark_scores, timeout)
     
-    return (total_score / responses) if responses > 0 else None
+    return benchmark_scores
 
 
 def get_logo_base64(logo_field):
@@ -42,6 +79,14 @@ def get_logo_base64(logo_field):
     """
     if not logo_field:
         return None
+    
+    # Create a cache key for the logo
+    cache_key = f'logo_base64_{logo_field.name}'
+    
+    # Check if we have a cached version
+    cached_logo = cache.get(cache_key)
+    if cached_logo is not None:
+        return cached_logo
     
     try:
         # Get the URL
@@ -86,31 +131,81 @@ def get_logo_base64(logo_field):
         
         # Encode the image content as base64
         encoded = base64.b64encode(image_content).decode('utf-8')
-        return f"data:{content_type};base64,{encoded}"
+        data_url = f"data:{content_type};base64,{encoded}"
+        
+        # Cache the data URL for 24 hours (logos rarely change)
+        cache.set(cache_key, data_url, 86400)
+        
+        return data_url
         
     except Exception as e:
         print(f"Error processing logo: {str(e)}")
         return None
 
 
-def generate_assessment_report(assessment_response):
+def generate_assessment_report(assessment_response, force_refresh=False):
     """
     Generate assessment report using HTML template and WeasyPrint.
+    Added caching to reduce database queries.
+    
+    Args:
+        assessment_response: The AssessmentResponse object
+        force_refresh: Whether to force regeneration even if cached report exists
+    
+    Returns:
+        Path to the generated PDF file
     """
-    try:
-        # Get assessment data
-        assessment = assessment_response.assessment
-        business = assessment.business
+    # Get assessment and business
+    assessment = assessment_response.assessment
+    business = assessment.business
+    
+    # Create a cache key for this specific report
+    cache_key = f'assessment_report_{assessment.id}'
+    
+    # Use TEMP_REPORT_DIR if defined, otherwise use default
+    report_dir = getattr(settings, 'TEMP_REPORT_DIR', os.path.join(settings.MEDIA_ROOT, 'assessment_reports'))
+    os.makedirs(report_dir, exist_ok=True)
+    
+    # Define the destination file path
+    pdf_filename = f'assessment_report_{assessment.unique_link}.pdf'
+    pdf_path = os.path.join(report_dir, pdf_filename)
+    
+    # Check if the file already exists and we're not forcing a refresh
+    if not force_refresh and os.path.exists(pdf_path):
+        logger.info(f"Using existing PDF report for assessment {assessment.id}")
+        return pdf_path
+    
+    # Check if we're currently generating this report (to prevent concurrent generation)
+    if not force_refresh and cache.get(f"{cache_key}_generating"):
+        logger.info(f"Report generation already in progress for assessment {assessment.id}")
+        # Wait for existing generation to complete by checking for file
+        import time
+        max_wait = 30  # Maximum wait time in seconds
+        for _ in range(max_wait):
+            if os.path.exists(pdf_path):
+                return pdf_path
+            time.sleep(1)
         
+        # If we get here, something went wrong with the other process
+        logger.warning(f"Timed out waiting for report generation for assessment {assessment.id}")
+    
+    try:
+        # Set a flag to indicate we're generating this report
+        cache.set(f"{cache_key}_generating", True, 300)  # 5 minute timeout
+        
+        # Calculate completion time
         completion_time = assessment_response.submitted_at - assessment.created_at
         
-        # Get all attributes and print them
-        attributes = Attribute.objects.filter(
-            business=assessment.business,
+        # Get all attributes in one efficient query
+        attributes = list(Attribute.objects.filter(
+            business=business,
             active=True
-        ).order_by('order')
+        ).order_by('order'))
         
-        # Initialize scores dictionary
+        # Get all benchmark scores in one query instead of per attribute
+        benchmark_scores = get_benchmark_scores_for_business(business)
+        
+        # Initialize scores dictionary with the same structure as your original function
         scores = {
             'integrity': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
             'safety': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
@@ -125,13 +220,16 @@ def generate_assessment_report(assessment_response):
             'ambition': {'candidate_score': 'N/A', 'benchmark_score': 'N/A'},
         }
         
-        # Calculate scores for each attribute
+        # Calculate scores for each attribute efficiently
         for attribute in attributes:
             original_name = attribute.name
             normalized_name = attribute.name.lower().replace('/', '_').replace(' ', '_').replace('-', '_')
             
+            # Get candidate score for this attribute
             candidate_score = assessment_response.get_score_for_attribute(attribute)
-            benchmark_score = get_benchmark_score_for_attribute(assessment.business, attribute)
+            
+            # Get benchmark score from our pre-calculated dictionary
+            benchmark_score = benchmark_scores.get(attribute.id)
             
             # Try to find a matching score key
             matched_key = None
@@ -146,12 +244,12 @@ def generate_assessment_report(assessment_response):
                     'benchmark_score': f"{benchmark_score:.1f}%" if benchmark_score is not None else "N/A"
                 }
             else:
-                print(f"WARNING: No match found for {original_name}")
-                print(f"Available keys: {list(scores.keys())}")
+                logger.warning(f"No match found for {original_name}")
+                logger.debug(f"Available keys: {list(scores.keys())}")
         
-        # Get business logo as base64 data URL
+        # Get business logo as base64 data URL - this is now cached
         business_logo = get_logo_base64(business.logo) if business.logo else None
-        print(f"Business logo processed: {'Yes' if business_logo else 'No'}")
+        logger.info(f"Business logo processed: {'Yes' if business_logo else 'No'}")
         
         # Prepare context with business branding
         context = {
@@ -172,24 +270,18 @@ def generate_assessment_report(assessment_response):
             'business_phone': "",  # You can add a phone field to the Business model if needed
         }
         
-        # Debug output
-        print(f"Report context - Business name: {context['business_name']}")
+        logger.info(f"Report context - Business name: {context['business_name']}")
         
-        # Setup output paths
-        reports_dir = os.path.join(settings.MEDIA_ROOT, 'assessment_reports')
-        os.makedirs(reports_dir, exist_ok=True)
-        output_path = os.path.join(reports_dir, f'assessment_report_{assessment.unique_link}.pdf')
-        
-        # Get CSS
+        # Get CSS path
         css_path = os.path.join(settings.STATIC_ROOT, 'css', 'assessment_report.css')
         if not os.path.exists(css_path):
             css_path = os.path.join(settings.BASE_DIR, 'baseapp', 'static', 'css', 'assessment_report.css')
         
+        # Read CSS
         with open(css_path, 'r', encoding='utf-8') as css_file:
             css_string = css_file.read()
         
         # Create temporary HTML file
-        import tempfile
         with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as tmp_html:
             # Render template
             html_string = render_to_string('baseapp/assessment_report.html', context)
@@ -201,20 +293,41 @@ def generate_assessment_report(assessment_response):
             html = HTML(filename=tmp_html_path)
             css = CSS(string=css_string)
             
+            # Create temp file for PDF to avoid permission issues on Heroku
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+                temp_pdf_path = temp_pdf.name
+            
+            # Write to temp file first
             html.write_pdf(
-                output_path,
+                temp_pdf_path,
                 stylesheets=[css]
             )
             
-            return output_path
+            # Copy to final destination
+            import shutil
+            shutil.copy2(temp_pdf_path, pdf_path)
+            
+            # Remove temp PDF file
+            if os.path.exists(temp_pdf_path):
+                os.unlink(temp_pdf_path)
+            
+            # Clear the generating flag
+            cache.delete(f"{cache_key}_generating")
+            
+            return pdf_path
             
         finally:
-            # Clean up temporary file
+            # Clean up temporary HTML file
             if os.path.exists(tmp_html_path):
                 os.unlink(tmp_html_path)
         
     except Exception as e:
-        print(f"\nERROR in generate_assessment_report: {str(e)}")
-        print(f"Python version: {sys.version}")
-        print(f"Current working directory: {os.getcwd()}")
+        # Clear the generating flag on error
+        cache.delete(f"{cache_key}_generating")
+        
+        logger.error(f"ERROR in generate_assessment_report: {str(e)}")
+        logger.error(f"Python version: {sys.version}")
+        logger.error(f"Current working directory: {os.getcwd()}")
+        
+        # Re-raise the exception
         raise
