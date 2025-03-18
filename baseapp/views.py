@@ -2124,10 +2124,46 @@ def create_assessment(request):
             assessment.created_by = request.user
             # Explicitly set the business
             assessment.business = request.user.business
+            
+            # ENHANCED MANAGER HANDLING - similar to admin version
+            selected_managers = form.cleaned_data.get('selected_managers', [])
+            primary_manager = form.cleaned_data.get('primary_manager')
+            
+            # Ensure we have a valid primary manager
+            if primary_manager:
+                assessment.manager_name = primary_manager.name
+                assessment.manager_email = primary_manager.email
+            elif selected_managers:
+                # If no primary manager but we have managers, use the first one
+                first_manager = selected_managers[0]
+                assessment.manager_name = first_manager.name
+                assessment.manager_email = first_manager.email
+            
+            # Save the assessment to get an ID
             assessment.save()
             
-            # Save the ManyToMany manager relationship (form.save handles this now)
-            form.save_m2m()
+            # Get all default managers for this business
+            default_managers = Manager.objects.filter(
+                business=request.user.business,
+                active=True,
+                is_default=True
+            )
+            
+            # Create a set of all manager IDs to avoid duplicates
+            manager_ids = set(manager.id for manager in selected_managers)
+            
+            # Add default managers if they're not already included
+            for default_manager in default_managers:
+                manager_ids.add(default_manager.id)
+            
+            # If primary manager is not in the set, add it
+            if primary_manager and primary_manager.id not in manager_ids:
+                manager_ids.add(primary_manager.id)
+            
+            # Set all managers explicitly, bypassing form.save_m2m()
+            if manager_ids:
+                managers = Manager.objects.filter(id__in=manager_ids)
+                assessment.managers.set(managers)
             
             # Generate a secure unique link
             assessment.unique_link = generate_secure_token(
