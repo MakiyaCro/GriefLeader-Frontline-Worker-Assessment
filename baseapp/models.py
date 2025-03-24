@@ -108,6 +108,8 @@ class Manager(models.Model):
     """Represents a manager who can be assigned to assessments"""
     business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='managers')
     name = models.CharField(max_length=255)
+    region = models.CharField(max_length=255, default='')
+    position = models.CharField(max_length=255, default='')
     email = models.EmailField()
     created_at = models.DateTimeField(auto_now_add=True)
     active = models.BooleanField(default=True)

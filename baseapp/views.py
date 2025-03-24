@@ -2009,7 +2009,7 @@ def manage_managers(request, business_id):
         managers = Manager.objects.filter(
             business_id=business_id,
             active=True
-        ).values('id', 'name', 'email', 'is_default')
+        ).values('id', 'name', 'email', 'region','position','is_default')
         
         return JsonResponse({'managers': list(managers)})
     
@@ -2019,6 +2019,8 @@ def manage_managers(request, business_id):
             data = json.loads(request.body)
             name = data.get('name', '').strip()
             email = data.get('email', '').strip()
+            region = data.get('region', '').strip()
+            position = data.get('position', '').strip()
             is_default = data.get('is_default', False)
 
             if not name or not email:
@@ -2037,6 +2039,8 @@ def manage_managers(request, business_id):
                 business=business,
                 name=name,
                 email=email,
+                region=region,
+                position=position,
                 is_default=is_default
             )
 
@@ -2044,6 +2048,8 @@ def manage_managers(request, business_id):
                 'id': manager.id,
                 'name': manager.name,
                 'email': manager.email,
+                'region': manager.region,
+                'position': manager.position,
                 'is_default': manager.is_default
             })
             
@@ -2069,6 +2075,8 @@ def manage_manager(request, manager_id):
             data = json.loads(request.body)
             name = data.get('name')
             email = data.get('email')
+            region = data.get('region')
+            position = data.get('position')
             is_default = data.get('is_default', manager.is_default)
             
             if name is not None:
@@ -2089,6 +2097,12 @@ def manage_manager(request, manager_id):
                 
                 manager.email = email
             
+            if region is not None:
+                manager.region = region
+
+            if position is not None:
+                manager.position = position
+            
             manager.is_default = is_default
             manager.save()
             
@@ -2096,6 +2110,8 @@ def manage_manager(request, manager_id):
                 'id': manager.id,
                 'name': manager.name,
                 'email': manager.email,
+                'region': manager.region,
+                'position': manager.position,
                 'is_default': manager.is_default
             })
         except Exception as e:

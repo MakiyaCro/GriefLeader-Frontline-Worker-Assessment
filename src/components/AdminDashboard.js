@@ -35,6 +35,8 @@ const AdminDashboard = () => {
   const [newManager, setNewManager] = useState({
     name: '',
     email: '',
+    region: '',
+    position: '',
     is_default: false
   });
   const [managers, setManagers] = useState([]);
@@ -432,6 +434,8 @@ const AdminDashboard = () => {
         body: JSON.stringify({
           name: newManager.name,
           email: newManager.email,
+          region: newManager.region,
+          position: newManager.position,
           is_default: newManager.is_default || false // Ensure boolean value
         }),
       });
@@ -451,6 +455,8 @@ const AdminDashboard = () => {
       setNewManager({
         name: '',
         email: '',
+        region: '',
+        position:'',
         is_default: false
       });
       
@@ -500,6 +506,8 @@ const AdminDashboard = () => {
         body: JSON.stringify({
           name: currentManager.name,
           email: currentManager.email,
+          region: currentManager.region,
+          position: currentManager.position,
           is_default: currentManager.is_default
         }),
       });
@@ -834,6 +842,12 @@ const AdminDashboard = () => {
                                 Email
                               </th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Region
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Position
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Default
                               </th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -849,6 +863,12 @@ const AdminDashboard = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   {manager.email}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {manager.region}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  {manager.position}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   {manager.is_default ? (
@@ -1155,7 +1175,33 @@ const AdminDashboard = () => {
                     required
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Region
+                  </label>
+                  <input
+                    type="text"
+                    value={newManager.region}
+                    onChange={(e) => setNewManager({...newManager, region: e.target.value})}
+                    className="w-full p-2 border rounded"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Position
+                  </label>
+                  <input
+                    type="text"
+                    value={newManager.position}
+                    onChange={(e) => setNewManager({...newManager, position: e.target.value})}
+                    className="w-full p-2 border rounded"
+                  />
+                </div>
               </div>
+
+              
               
               <div className="flex items-center mt-4">
                 <input
@@ -1220,6 +1266,30 @@ const AdminDashboard = () => {
                     onChange={(e) => setCurrentManager({...currentManager, email: e.target.value})}
                     className="w-full p-2 border rounded"
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Region
+                  </label>
+                  <input
+                    type="text"
+                    value={currentManager.region}
+                    onChange={(e) => setCurrentManager({...currentManager, region: e.target.value})}
+                    className="w-full p-2 border rounded"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Position
+                  </label>
+                  <input
+                    type="text"
+                    value={currentManager.position}
+                    onChange={(e) => setCurrentManager({...currentManager, position: e.target.value})}
+                    className="w-full p-2 border rounded"
                   />
                 </div>
               </div>
