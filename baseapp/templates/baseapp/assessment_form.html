@@ -47,11 +47,43 @@
                 <h4 class="mb-3 mt-4 pb-2 border-bottom">Manager Selection</h4>
                 
                 <div class="alert alert-info mb-3">
-                    <p class="mb-0"><i class="bi bi-info-circle me-2"></i> Default managers are already selected and will automatically receive all assessment notifications.</p>
+                    <p class="mb-0"><i class="bi bi-info-circle me-2"></i> Default managers (grayed out) are automatically selected and cannot be deselected. Your account is pre-selected if you are a manager.</p>
                 </div>
                 
                 <div class="mb-3">
-                    {{ form.selected_managers|as_crispy_field }}
+                    <!-- Custom rendering of manager selection -->
+                    <label for="id_selected_managers" class="form-label requiredField">
+                        Select Managers to Notify<span class="asteriskField">*</span>
+                    </label>
+                    <div class="manager-checkbox-list" id="id_selected_managers">
+                        {% for manager in form.fields.selected_managers.queryset %}
+                            <div class="form-check{% if manager.is_default %} bg-light{% endif %}{% if manager.email == request.user.email %} bg-info bg-opacity-10{% endif %}">
+                                <input 
+                                    type="checkbox" 
+                                    name="selected_managers" 
+                                    value="{{ manager.id }}" 
+                                    id="id_selected_managers_{{ forloop.counter0 }}" 
+                                    class="form-check-input{% if manager.is_default %} opacity-50{% endif %}"
+                                    {% if manager.id in form.initial.selected_managers or manager.is_default or manager.email == request.user.email %} checked{% endif %}
+                                    {% if manager.is_default %} onclick="return false;"{% endif %}
+                                >
+                                <label for="id_selected_managers_{{ forloop.counter0 }}" class="form-check-label{% if manager.is_default %} text-muted{% endif %}">
+                                    {{ manager.name }} ({{ manager.email }})
+                                    {% if manager.is_default %} <span class="badge bg-secondary">Default</span>{% endif %}
+                                    {% if manager.email == request.user.email %} <span class="badge bg-info">You</span>{% endif %}
+                                </label>
+                                {% if manager.is_default %}
+                                    <input type="hidden" name="selected_managers" value="{{ manager.id }}">
+                                {% endif %}
+                                {% if manager.email == request.user.email and not manager.is_default %}
+                                    <input type="hidden" name="current_user_manager" value="{{ manager.id }}">
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="form-text">
+                        {{ form.fields.selected_managers.help_text }}
+                    </div>
                 </div>
                 
                 <div class="mb-3">
@@ -66,18 +98,49 @@
     </div>
     
     <script>
-    // Add script to highlight default managers
     document.addEventListener('DOMContentLoaded', function() {
+        // Handle manager checkboxes
         const managerCheckboxes = document.querySelectorAll('.manager-checkbox-list input[type="checkbox"]');
         
         managerCheckboxes.forEach(checkbox => {
-            // Check if the parent element contains text indicating this is a default manager
             const label = checkbox.closest('label') || checkbox.nextElementSibling;
+            const parentDiv = checkbox.parentElement;
+            
+            // Handle default managers
             if (label && label.textContent.includes('Default')) {
-                checkbox.parentElement.classList.add('bg-light');
-                checkbox.disabled = true;
+                // Force default managers to be checked and prevent unchecking
+                checkbox.checked = true;
+                checkbox.setAttribute('onclick', 'return false;');
+                checkbox.classList.add('opacity-50');  // Gray out the checkbox
+            }
+            
+            // Handle current user as manager
+            if (label && label.textContent.includes('You')) {
+                checkbox.checked = true;
+                
+                // Add special styling for current user
+                if (!label.textContent.includes('Default')) {
+                    // Only add special handling if not already a default manager
+                    parentDiv.classList.add('bg-info', 'bg-opacity-10');
+                }
             }
         });
+        
+        // Handle primary manager dropdown - preselect the current user if possible
+        const primaryManagerSelect = document.getElementById('id_primary_manager');
+        const currentUserManager = document.querySelector('input[name="current_user_manager"]');
+        
+        if (primaryManagerSelect && currentUserManager) {
+            // If no primary manager is selected yet, and current user is a manager, select them
+            if (primaryManagerSelect.value === '' && currentUserManager.value) {
+                for (let i = 0; i < primaryManagerSelect.options.length; i++) {
+                    if (primaryManagerSelect.options[i].value === currentUserManager.value) {
+                        primaryManagerSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
     });
     </script>
 </div>

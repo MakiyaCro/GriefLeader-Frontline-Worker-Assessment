@@ -76,25 +76,64 @@ class AssessmentCreationForm(forms.ModelForm):
             self.fields['primary_manager'].help_text = "This manager's name will appear as the sender on emails"
             
             # Auto-select default managers if not already in initial
-            if not self.initial.get('selected_managers'):
-                default_managers = managers.filter(is_default=True)
-                if default_managers.exists():
+            default_managers = managers.filter(is_default=True)
+            if default_managers.exists():
+                if 'selected_managers' not in self.initial:
                     self.initial['selected_managers'] = default_managers
+                else:
+                    # Make sure all default managers are included in the initial selection
+                    current_selections = self.initial['selected_managers']
+                    for default_manager in default_managers:
+                        if default_manager not in current_selections:
+                            if isinstance(current_selections, list):
+                                current_selections.append(default_manager)
+                            else:
+                                self.initial['selected_managers'] = list(current_selections) + [default_manager]
             
-            # If user provided and they match a manager, auto-select them as primary
-            if user and not self.initial.get('primary_manager'):
+            # If user provided and they match a manager, auto-select them as primary and in the selected managers
+            if user:
                 user_manager = managers.filter(email=user.email).first()
                 if user_manager:
-                    self.initial['primary_manager'] = user_manager
+                    # Set as primary manager if not already set
+                    if not self.initial.get('primary_manager'):
+                        self.initial['primary_manager'] = user_manager
                     
-                    # Ensure this manager is also in selected_managers
-                    if 'selected_managers' in self.initial and user_manager not in self.initial['selected_managers']:
-                        self.initial['selected_managers'] = list(self.initial['selected_managers']) + [user_manager]
+                    # Ensure the current user is in selected_managers
+                    if 'selected_managers' not in self.initial:
+                        self.initial['selected_managers'] = [user_manager]
+                    elif user_manager not in self.initial['selected_managers']:
+                        if isinstance(self.initial['selected_managers'], list):
+                            self.initial['selected_managers'].append(user_manager)
+                        else:
+                            self.initial['selected_managers'] = list(self.initial['selected_managers']) + [user_manager]
         
     def clean(self):
         cleaned_data = super().clean()
-        selected_managers = cleaned_data.get('selected_managers')
+        selected_managers = cleaned_data.get('selected_managers', [])
         primary_manager = cleaned_data.get('primary_manager')
+        
+        # Ensure default managers and current user (if a manager) are always included
+        if self.business:
+            # Get default managers
+            default_managers = Manager.objects.filter(business=self.business, is_default=True)
+            
+            # Convert to list if it's not already
+            if not isinstance(selected_managers, list):
+                selected_managers = list(selected_managers)
+                
+            # Add any missing default managers
+            for default_manager in default_managers:
+                if default_manager not in selected_managers:
+                    selected_managers.append(default_manager)
+            
+            # If the current user matches a manager, make sure they're included too
+            current_user_email = self.instance.created_by.email if hasattr(self.instance, 'created_by') and self.instance.created_by else None
+            if current_user_email:
+                user_manager = Manager.objects.filter(business=self.business, email=current_user_email, active=True).first()
+                if user_manager and user_manager not in selected_managers:
+                    selected_managers.append(user_manager)
+            
+            cleaned_data['selected_managers'] = selected_managers
         
         # Ensure primary manager is in selected managers
         if primary_manager and selected_managers and primary_manager not in selected_managers:
@@ -128,8 +167,26 @@ class AssessmentCreationForm(forms.ModelForm):
         assessment = super().save(commit=commit)
         
         if commit and self.cleaned_data.get('selected_managers'):
-            # Add the selected managers to the assessment
-            assessment.managers.set(self.cleaned_data['selected_managers'])
+            # Ensure default managers are always included
+            if self.business:
+                default_manager_ids = set(
+                    Manager.objects.filter(business=self.business, is_default=True)
+                    .values_list('id', flat=True)
+                )
+                
+                # Get the selected manager IDs
+                selected_manager_ids = set(
+                    manager.id for manager in self.cleaned_data['selected_managers']
+                )
+                
+                # Make sure all default manager IDs are included
+                selected_manager_ids.update(default_manager_ids)
+                
+                # Set the managers with the combined set
+                assessment.managers.set(Manager.objects.filter(id__in=selected_manager_ids))
+            else:
+                # If no business context, just use the selected managers
+                assessment.managers.set(self.cleaned_data['selected_managers'])
             
         return assessment
 
