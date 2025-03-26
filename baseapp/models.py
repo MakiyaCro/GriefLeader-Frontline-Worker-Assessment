@@ -268,3 +268,21 @@ class EmailTemplate(models.Model):
         
     def __str__(self):
         return f"{self.business.name} - {self.get_template_type_display()}"
+    
+class TrainingMaterial(models.Model):
+    """Represents a training material item shown on the training page (global)"""
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    icon = models.CharField(max_length=50, default='book')
+    color = models.CharField(max_length=20, default='#3b82f6')
+    document_url = models.URLField(blank=True)
+    order = models.IntegerField(default=0)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.title
+    
+    class Meta:
+        ordering = ['order', 'title']

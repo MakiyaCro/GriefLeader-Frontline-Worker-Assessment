@@ -1,0 +1,48 @@
+{% extends 'baseapp/base.html' %}
+
+{% block title %}Training Materials - WorkForceCompass{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header Section -->
+    <div class="mb-4">
+        <h2 class="mb-2">Training Materials</h2>
+        <p class="text-muted" 
+           {% if user.business.primary_color %}
+           style="color: {{ user.business.primary_color }} !important;"
+           {% endif %}
+        >Resources for managers and HR staff</p>
+        <hr>
+    </div>
+
+    <!-- Training Materials Cards - Dynamically generated from the database -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
+        {% for material in training_materials %}
+            {% if material.active %}
+                <div class="col">
+                    <div class="card h-100 shadow-sm" style="border-top: 4px solid {{ material.color }}">
+                        <div class="card-body">
+                            <h5 class="card-title d-flex align-items-center">
+                                <i class="fas fa-{{ material.icon }} me-2" style="color: {{ material.color }};"></i>
+                                {{ material.title }}
+                            </h5>
+                            <p class="card-text">{{ material.description }}</p>
+                        </div>
+                        <div class="card-footer bg-transparent border-0">
+                            <a href="{{ material.document_url }}" target="_blank" class="btn" style="background-color: {{ material.color }}; color: white;">
+                                <i class="fas fa-external-link-alt me-2"></i>View Document
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% empty %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>No training materials available at this time. Please check back later.
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

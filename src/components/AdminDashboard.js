@@ -5,8 +5,11 @@ import QuestionPairManager from './QuestionPairManager';
 import HRUserManager from './HRUserManager';
 import ModuleVisibilityMenu from './ModuleVisibilityMenu';
 import { ChevronRight, Upload } from 'lucide-react';
+import AdminNavbar from './AdminNavbar';
+import TrainingMaterialsManager from './TrainingMaterialsManager';
 
 const AdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [businesses, setBusinesses] = useState([]);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [businessDetails, setBusinessDetails] = useState(null);
@@ -72,6 +75,8 @@ const AdminDashboard = () => {
     const csrfTokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
     return csrfTokenElement ? csrfTokenElement.value : '';
   };
+
+  
 
   // Fetch list of businesses
   const fetchBusinesses = async () => {
@@ -532,180 +537,276 @@ const AdminDashboard = () => {
       [moduleId]: isVisible
     }));
   };
-  // If loading, show loading state
-  if (loading) {
-    return <div>Loading...</div>;
-  }
 
-  return (
-    <div className="flex h-screen">
-      {/* Module Visibility Menu */}
-      <ModuleVisibilityMenu onToggleModuleVisibility={handleToggleModuleVisibility} />
 
-      {/* Business Sidebar */}
-      {moduleVisibility.sidebarModule ? (
-      <div className="w-64 bg-gray-100 p-4 flex flex-col">
-        <h2 className="text-xl font-bold mb-4">Businesses</h2>
-        <div className="flex-grow overflow-y-auto">
-          {businesses.length === 0 ? (
-            <p className="text-gray-500">No businesses found</p>
-          ) : (
-            <div>
-              {businesses.map((business) => (
-                <button
-                  key={business.id}
-                  onClick={() => handleBusinessSelect(business)}
-                  className={`w-full text-left p-2 mb-2 rounded ${
-                    selectedBusiness && selectedBusiness.id === business.id 
-                      ? 'bg-blue-500 text-white' 
-                      : 'hover:bg-gray-200'
-                  }`}
-                >
-                  {business.name}
-                  {!business.assessment_template_uploaded && (
-                    <span className="text-red-500 ml-2">*</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+  const renderContent = () => {
+    if (activeTab === 'training') {
+      return (
+        <div className="p-6 w-full">
+          <h1 className="text-2xl font-bold mb-6">Training Materials Management</h1>
+          <p className="mb-6 text-gray-600">
+            Manage training materials that will be displayed to all HR users across all businesses.
+            These materials appear on the Training page accessible by HR users.
+          </p>
+          <TrainingMaterialsManager />
         </div>
-        
-        {/* Create Business Button */}
-        <button 
-          onClick={() => setShowBusinessForm(true)}
-          className="w-full mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Create New Business
-        </button>
-      </div>
-    ) : (
-      /* When sidebar is hidden, show a minimal sidebar with just a toggle button */
-      <div className="w-10 bg-gray-100 flex flex-col items-center p-2">
-        <button
-          onClick={() => handleToggleModuleVisibility('sidebarModule', true)}
-          className="mt-2 text-blue-500 hover:text-blue-700"
-          title="Show Business Sidebar"
-        >
-          <ChevronRight size={20} />
-        </button>
-      </div>
-    )}
+      );
+    } else {
+      return (
+        <div className="flex h-full w-full">
+          {/* Module Visibility Menu */}
+          <ModuleVisibilityMenu onToggleModuleVisibility={handleToggleModuleVisibility} />
 
-      {/* Main Content Area */}
-      <div className="flex-1 p-8 bg-white overflow-y-auto">
-        {/* Success Message */}
-        {success && (
-          <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded z-50">
-            {success}
+          {/* Business Sidebar */}
+          {moduleVisibility.sidebarModule ? (
+          <div className="w-64 bg-gray-100 p-4 flex flex-col">
+            <h2 className="text-xl font-bold mb-4">Businesses</h2>
+            <div className="flex-grow overflow-y-auto">
+              {businesses.length === 0 ? (
+                <p className="text-gray-500">No businesses found</p>
+              ) : (
+                <div>
+                  {businesses.map((business) => (
+                    <button
+                      key={business.id}
+                      onClick={() => handleBusinessSelect(business)}
+                      className={`w-full text-left p-2 mb-2 rounded ${
+                        selectedBusiness && selectedBusiness.id === business.id 
+                          ? 'bg-blue-500 text-white' 
+                          : 'hover:bg-gray-200'
+                      }`}
+                    >
+                      {business.name}
+                      {!business.assessment_template_uploaded && (
+                        <span className="text-red-500 ml-2">*</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Create Business Button */}
+            <button 
+              onClick={() => setShowBusinessForm(true)}
+              className="w-full mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Create New Business
+            </button>
+          </div>
+        ) : (
+          /* When sidebar is hidden, show a minimal sidebar with just a toggle button */
+          <div className="w-10 bg-gray-100 flex flex-col items-center p-2">
+            <button
+              onClick={() => handleToggleModuleVisibility('sidebarModule', true)}
+              className="mt-2 text-blue-500 hover:text-blue-700"
+              title="Show Business Sidebar"
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
         )}
 
-        {!selectedBusiness ? (
-          <div className="text-center text-gray-500">
-            Select a business to view details
-          </div>
-        ) : (
-          <div>
-            {/* Business Header */}
-            <div className="mb-8 flex justify-between items-center">
-              <h1 
-                className="text-3xl font-bold" 
-                style={{color: selectedBusiness.primary_color || '#000000'}}
-              >
-                {selectedBusiness.name}
-              </h1>
-              <div className="flex items-center">
-                {selectedBusiness.logo_url ? (
-                  <div className="relative mr-4">
-                    <img 
-                      src={selectedBusiness.logo_url} 
-                      alt={`${selectedBusiness.name} logo`} 
-                      className="h-16 max-w-xs object-contain"
-                    />
-                    <label 
-                      className="cursor-pointer absolute bottom-0 right-0 bg-white p-1 rounded-full shadow"
-                      title="Change Logo"
-                    >
-                      <Upload size={16} className="text-gray-500" />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                ) : (
-                  <label 
-                    className="cursor-pointer px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 mr-4 flex items-center"
-                    title="Upload Logo"
-                  >
-                    <Upload size={16} className="mr-2" />
-                    Upload Logo
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-                <button 
-                  onClick={() => setShowDeleteBusinessConfirmation(true)}
-                  className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 flex items-center"
-                >
-                  Delete Business
-                </button>
+          {/* Main Content Area */}
+          <div className="flex-1 p-8 bg-white overflow-y-auto">
+            {/* Success Message */}
+            {success && (
+              <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded z-50">
+                {success}
               </div>
-            </div>
+            )}
 
-            {/* Business Details */}
-            {businessDetails && (
-              <div className="w-full">    
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                  {/* HR Users Section */}
-                  {moduleVisibility.hrUsersModule && (
-                    <div className="bg-gray-50 p-6 rounded-lg">
-                      <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold">HR Users</h2>
-                        <button 
-                          onClick={() => setShowAddHRUserModal(true)}
-                          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            {!selectedBusiness ? (
+              <div className="text-center text-gray-500">
+                Select a business to view details
+              </div>
+            ) : (
+              <div>
+                {/* Business Header */}
+                <div className="mb-8 flex justify-between items-center">
+                  <h1 
+                    className="text-3xl font-bold" 
+                    style={{color: selectedBusiness.primary_color || '#000000'}}
+                  >
+                    {selectedBusiness.name}
+                  </h1>
+                  <div className="flex items-center">
+                    {selectedBusiness.logo_url ? (
+                      <div className="relative mr-4">
+                        <img 
+                          src={selectedBusiness.logo_url} 
+                          alt={`${selectedBusiness.name} logo`} 
+                          className="h-16 max-w-xs object-contain"
+                        />
+                        <label 
+                          className="cursor-pointer absolute bottom-0 right-0 bg-white p-1 rounded-full shadow"
+                          title="Change Logo"
                         >
-                          Add HR User
-                        </button>
+                          <Upload size={16} className="text-gray-500" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            className="hidden"
+                          />
+                        </label>
                       </div>
-                      
-                      {businessDetails && (
-                        businessDetails.hr_users.length === 0 ? (
-                          <p className="text-gray-500">No HR users found</p>
+                    ) : (
+                      <label 
+                        className="cursor-pointer px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 mr-4 flex items-center"
+                        title="Upload Logo"
+                      >
+                        <Upload size={16} className="mr-2" />
+                        Upload Logo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                    <button 
+                      onClick={() => setShowDeleteBusinessConfirmation(true)}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 flex items-center"
+                    >
+                      Delete Business
+                    </button>
+                  </div>
+                </div>
+
+                {/* Business Details */}
+                {businessDetails && (
+                  <div className="w-full">    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                      {/* HR Users Section */}
+                      {moduleVisibility.hrUsersModule && (
+                        <div className="bg-gray-50 p-6 rounded-lg">
+                          <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold">HR Users</h2>
+                            <button 
+                              onClick={() => setShowAddHRUserModal(true)}
+                              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                              Add HR User
+                            </button>
+                          </div>
+                          
+                          {businessDetails && (
+                            businessDetails.hr_users.length === 0 ? (
+                              <p className="text-gray-500">No HR users found</p>
+                            ) : (
+                              <HRUserManager
+                                hrUsers={businessDetails.hr_users}
+                                onDeleteUser={async (userId) => {
+                                  try {
+                                    const response = await fetch(`/api/hr-users/${userId}/`, {
+                                      method: 'DELETE',
+                                      headers: {
+                                        'X-CSRFToken': getCsrfToken(),
+                                      }
+                                    });
+                                    
+                                    if (!response.ok) throw new Error('Failed to delete HR user');
+                                    
+                                    // Refresh business details
+                                    await fetchBusinessDetails(selectedBusiness.id);
+                                    
+                                    setSuccess('HR user deleted successfully');
+                                    setTimeout(() => setSuccess(null), 3000);
+                                  } catch (err) {
+                                    setError(err.message);
+                                  }
+                                }}
+                                onEditUser={async (userId, data) => {
+                                  try {
+                                    const response = await fetch(`/api/hr-users/${userId}/`, {
+                                      method: 'PUT',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRFToken': getCsrfToken(),
+                                      },
+                                      body: JSON.stringify(data)
+                                    });
+                                    
+                                    if (!response.ok) throw new Error('Failed to update HR user');
+                                    
+                                    // Refresh business details
+                                    await fetchBusinessDetails(selectedBusiness.id);
+                                    
+                                    setSuccess('HR user updated successfully');
+                                    setTimeout(() => setSuccess(null), 3000);
+                                  } catch (err) {
+                                    setError(err.message);
+                                  }
+                                }}
+                                onResetPassword={async (userId) => {
+                                  try {
+                                    const response = await fetch(`/api/hr-users/${userId}/reset-password/`, {
+                                      method: 'POST',
+                                      headers: {
+                                        'X-CSRFToken': getCsrfToken(),
+                                      }
+                                    });
+                                    
+                                    if (!response.ok) throw new Error('Failed to reset password');
+                                    
+                                    setSuccess('Password reset email sent successfully');
+                                    setTimeout(() => setSuccess(null), 3000);
+                                  } catch (err) {
+                                    setError(err.message);
+                                  }
+                                }}
+                              />
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      {/* Assessment Pairs Section */}
+                      {moduleVisibility.questionPairsModule && (
+                        <div className="bg-gray-50 p-6 rounded-lg">
+                        <div className="flex justify-between items-center mb-4">
+                          <h2 className="text-xl font-semibold">Assessment Pairs</h2>
+                          <label className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer">
+                            Upload CSV
+                            <input
+                              type="file"
+                              accept=".csv"
+                              onChange={handleAssessmentTemplateUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+
+                        {businessDetails.question_pairs.length === 0 ? (
+                          <p className="text-gray-500">No assessment pairs found</p>
                         ) : (
-                          <HRUserManager
-                            hrUsers={businessDetails.hr_users}
-                            onDeleteUser={async (userId) => {
+                          <QuestionPairManager
+                            questionPairs={businessDetails.question_pairs}
+                            onDeletePair={async (pairId) => {
                               try {
-                                const response = await fetch(`/api/hr-users/${userId}/`, {
+                                const response = await fetch(`/api/question-pairs/${pairId}/`, {
                                   method: 'DELETE',
                                   headers: {
                                     'X-CSRFToken': getCsrfToken(),
                                   }
                                 });
                                 
-                                if (!response.ok) throw new Error('Failed to delete HR user');
+                                if (!response.ok) throw new Error('Failed to delete question pair');
                                 
                                 // Refresh business details
                                 await fetchBusinessDetails(selectedBusiness.id);
                                 
-                                setSuccess('HR user deleted successfully');
+                                setSuccess('Question pair deleted successfully');
                                 setTimeout(() => setSuccess(null), 3000);
                               } catch (err) {
                                 setError(err.message);
                               }
                             }}
-                            onEditUser={async (userId, data) => {
+                            onEditPair={async (pairId, data) => {
                               try {
-                                const response = await fetch(`/api/hr-users/${userId}/`, {
+                                const response = await fetch(`/api/question-pairs/${pairId}/`, {
                                   method: 'PUT',
                                   headers: {
                                     'Content-Type': 'application/json',
@@ -714,212 +815,147 @@ const AdminDashboard = () => {
                                   body: JSON.stringify(data)
                                 });
                                 
-                                if (!response.ok) throw new Error('Failed to update HR user');
+                                if (!response.ok) throw new Error('Failed to update question pair');
                                 
                                 // Refresh business details
                                 await fetchBusinessDetails(selectedBusiness.id);
                                 
-                                setSuccess('HR user updated successfully');
-                                setTimeout(() => setSuccess(null), 3000);
-                              } catch (err) {
-                                setError(err.message);
-                              }
-                            }}
-                            onResetPassword={async (userId) => {
-                              try {
-                                const response = await fetch(`/api/hr-users/${userId}/reset-password/`, {
-                                  method: 'POST',
-                                  headers: {
-                                    'X-CSRFToken': getCsrfToken(),
-                                  }
-                                });
-                                
-                                if (!response.ok) throw new Error('Failed to reset password');
-                                
-                                setSuccess('Password reset email sent successfully');
+                                setSuccess('Question pair updated successfully');
                                 setTimeout(() => setSuccess(null), 3000);
                               } catch (err) {
                                 setError(err.message);
                               }
                             }}
                           />
-                        )
-                      )}
-                    </div>
-                  )}
-
-                  {/* Assessment Pairs Section */}
-                  {moduleVisibility.questionPairsModule && (
-                    <div className="bg-gray-50 p-6 rounded-lg">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-xl font-semibold">Assessment Pairs</h2>
-                      <label className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer">
-                        Upload CSV
-                        <input
-                          type="file"
-                          accept=".csv"
-                          onChange={handleAssessmentTemplateUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-
-                    {businessDetails.question_pairs.length === 0 ? (
-                      <p className="text-gray-500">No assessment pairs found</p>
-                    ) : (
-                      <QuestionPairManager
-                        questionPairs={businessDetails.question_pairs}
-                        onDeletePair={async (pairId) => {
-                          try {
-                            const response = await fetch(`/api/question-pairs/${pairId}/`, {
-                              method: 'DELETE',
-                              headers: {
-                                'X-CSRFToken': getCsrfToken(),
-                              }
-                            });
-                            
-                            if (!response.ok) throw new Error('Failed to delete question pair');
-                            
-                            // Refresh business details
-                            await fetchBusinessDetails(selectedBusiness.id);
-                            
-                            setSuccess('Question pair deleted successfully');
-                            setTimeout(() => setSuccess(null), 3000);
-                          } catch (err) {
-                            setError(err.message);
-                          }
-                        }}
-                        onEditPair={async (pairId, data) => {
-                          try {
-                            const response = await fetch(`/api/question-pairs/${pairId}/`, {
-                              method: 'PUT',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': getCsrfToken(),
-                              },
-                              body: JSON.stringify(data)
-                            });
-                            
-                            if (!response.ok) throw new Error('Failed to update question pair');
-                            
-                            // Refresh business details
-                            await fetchBusinessDetails(selectedBusiness.id);
-                            
-                            setSuccess('Question pair updated successfully');
-                            setTimeout(() => setSuccess(null), 3000);
-                          } catch (err) {
-                            setError(err.message);
-                          }
-                        }}
-                      />
-                    )}
-                    </div>
-                  )}
-                    
-                  
-                </div>
-                {/* Manager Section */}
-                  {moduleVisibility.managersModule && (
-                    <div className="bg-gray-50 p-6 rounded-lg mt-8 w-full">
-                      <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold">Managers</h2>
-                        <button 
-                          onClick={() => setShowAddManagerModal(true)}
-                          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        >
-                          Add Manager
-                        </button>
-                      </div>
-                      
-                      {managers.length === 0 ? (
-                        <p className="text-gray-500">No managers found</p>
-                      ) : (
-                        <div className="overflow-x-auto w-full">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Name
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Email
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Region
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Position
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Default
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Actions
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {managers.map((manager) => (
-                                <tr key={manager.id}>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    {manager.name}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    {manager.email}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    {manager.region}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    {manager.position}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    {manager.is_default ? (
-                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        Yes
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-400">No</span>
-                                    )}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button 
-                                      onClick={() => {
-                                        setCurrentManager(manager);
-                                        setShowEditManagerModal(true);
-                                      }}
-                                      className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                    >
-                                      Edit
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDeleteManager(manager.id)}
-                                      className="text-red-600 hover:text-red-900"
-                                    >
-                                      Delete
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        )}
                         </div>
                       )}
+                        
+                      
                     </div>
+                    {/* Manager Section */}
+                      {moduleVisibility.managersModule && (
+                        <div className="bg-gray-50 p-6 rounded-lg mt-8 w-full">
+                          <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold">Managers</h2>
+                            <button 
+                              onClick={() => setShowAddManagerModal(true)}
+                              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                              Add Manager
+                            </button>
+                          </div>
+                          
+                          {managers.length === 0 ? (
+                            <p className="text-gray-500">No managers found</p>
+                          ) : (
+                            <div className="overflow-x-auto w-full">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Name
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Email
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Region
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Position
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Default
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Actions
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {managers.map((manager) => (
+                                    <tr key={manager.id}>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {manager.name}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {manager.email}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {manager.region}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {manager.position}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {manager.is_default ? (
+                                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Yes
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400">No</span>
+                                        )}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button 
+                                          onClick={() => {
+                                            setCurrentManager(manager);
+                                            setShowEditManagerModal(true);
+                                          }}
+                                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                        >
+                                          Edit
+                                        </button>
+                                        <button 
+                                          onClick={() => handleDeleteManager(manager.id)}
+                                          className="text-red-600 hover:text-red-900"
+                                        >
+                                          Delete
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                  </div>
                   )}
-              </div>
-              )}
-              {/* Add BenchmarkSection here, right after the grid */}
-              {moduleVisibility.benchmarkModule && (
-                <BenchmarkSection businessDetails={businessDetails} />
-              )}
-              
-              {moduleVisibility.assessmentModule && (
-                <AssessmentSection businessDetails={businessDetails} />
-              )}
+                  {/* Add BenchmarkSection here, right after the grid */}
+                  {moduleVisibility.benchmarkModule && (
+                    <BenchmarkSection businessDetails={businessDetails} />
+                  )}
+                  
+                  {moduleVisibility.assessmentModule && (
+                    <AssessmentSection businessDetails={businessDetails} />
+                  )}
 
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      );
+    }
+  };
+
+  // If loading, show loading state
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="flex flex-col h-screen">
+      <AdminNavbar 
+        activeTab={activeTab} 
+        onTabChange={(tab) => setActiveTab(tab)} 
+      />
+
+      <div className="flex-1">
+        {/* Content area */}
+        {renderContent()}
       </div>
 
       {/* Business Form Modal */}

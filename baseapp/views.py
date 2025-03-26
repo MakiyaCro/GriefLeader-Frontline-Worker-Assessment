@@ -17,7 +17,7 @@ from datetime import datetime
 import pandas as pd
 import json
 import csv
-from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser, Manager, EmailTemplate
+from .models import Assessment, AssessmentResponse, QuestionPair, QuestionResponse, Attribute, Business, BenchmarkBatch, CustomUser, Manager, EmailTemplate, TrainingMaterial
 from .forms import AssessmentCreationForm, AssessmentResponseForm, BenchmarkBatchForm, PasswordResetForm, SetNewPasswordForm
 from .utils.report_generator import generate_assessment_report
 from django.template.loader import render_to_string
@@ -2117,6 +2117,107 @@ def manage_manager(request, manager_id):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
 
+#--admin training material
+@require_http_methods(["GET", "POST"])
+@user_passes_test(is_admin)
+def training_materials(request):
+    """Get or create training materials (global, not business-specific)"""
+    try:
+        if request.method == "GET":
+            # Get all training materials
+            materials = TrainingMaterial.objects.all().values(
+                'id', 'title', 'description', 'icon', 'color', 
+                'document_url', 'active', 'order'
+            )
+            
+            return JsonResponse({
+                'training_materials': list(materials)
+            })
+        
+        elif request.method == "POST":
+            data = json.loads(request.body)
+            
+            # Create a new training material without business association
+            material = TrainingMaterial.objects.create(
+                title=data.get('title'),
+                description=data.get('description', ''),
+                icon=data.get('icon', 'book'),
+                color=data.get('color', '#3b82f6'),
+                document_url=data.get('document_url', ''),
+                active=data.get('active', True),
+                order=data.get('order', 0)
+            )
+            
+            return JsonResponse({
+                'id': material.id,
+                'title': material.title,
+                'description': material.description,
+                'icon': material.icon,
+                'color': material.color,
+                'document_url': material.document_url,
+                'active': material.active,
+                'order': material.order
+            })
+            
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@require_http_methods(["GET", "PUT", "DELETE"])
+@user_passes_test(is_admin)
+def training_material_detail(request, material_id):
+    """Get, update or delete a specific training material"""
+    try:
+        material = TrainingMaterial.objects.get(pk=material_id)
+        
+        if request.method == "GET":
+            return JsonResponse({
+                'id': material.id,
+                'title': material.title,
+                'description': material.description,
+                'icon': material.icon,
+                'color': material.color,
+                'document_url': material.document_url,
+                'active': material.active
+            })
+            
+        elif request.method == "PUT":
+            data = json.loads(request.body)
+            
+            # Update fields
+            if 'title' in data:
+                material.title = data['title']
+            if 'description' in data:
+                material.description = data['description']
+            if 'icon' in data:
+                material.icon = data['icon']
+            if 'color' in data:
+                material.color = data['color']
+            if 'document_url' in data:
+                material.document_url = data['document_url']
+            if 'active' in data:
+                material.active = data['active']
+                
+            material.save()
+            
+            return JsonResponse({
+                'id': material.id,
+                'title': material.title,
+                'description': material.description,
+                'icon': material.icon,
+                'color': material.color,
+                'document_url': material.document_url,
+                'active': material.active
+            })
+            
+        elif request.method == "DELETE":
+            material.delete()
+            return JsonResponse({'message': 'Training material deleted successfully'})
+            
+    except TrainingMaterial.DoesNotExist:
+        return JsonResponse({'error': 'Training material not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
 #hr views
 @login_required
 @user_passes_test(is_hr_user)
@@ -2382,3 +2483,16 @@ def download_assessment_report(request, assessment_id):
         logger.error(f"Error downloading HR assessment report: {str(e)}")
         messages.error(request, "There was an error downloading the report. Please try again later.")
         return redirect('baseapp:dashboard')
+    
+@login_required
+@user_passes_test(is_hr_user)
+def training(request):
+    """View for HR users to access training materials"""
+    # Get all active training materials
+    training_materials = TrainingMaterial.objects.filter(
+        active=True
+    ).order_by('order', 'title')
+    
+    return render(request, 'baseapp/training.html', {
+        'training_materials': training_materials
+    })

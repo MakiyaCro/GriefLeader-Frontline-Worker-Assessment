@@ -59,6 +59,10 @@ urlpatterns = [
     path('api/assessments/<int:assessment_id>/', views.handle_assessment, name='handle-assessment'),
     path('api/assessments/<int:assessment_id>/managers/', views.assessment_managers, name='assessment-managers'),
 
+    #--admin training material
+    path('api/training-materials/', views.training_materials, name='training-materials'),
+    path('api/training-materials/<int:material_id>/', views.training_material_detail, name='training-material-detail'),
+
 
     #--admin manager
     path('api/businesses/<int:business_id>/managers/', views.manage_managers, name='manage_managers'),
@@ -70,5 +74,6 @@ urlpatterns = [
     path('assessment/<int:assessment_id>/resend/', views.resend_assessment, name='resend_assessment'),
     path('assessment/preview/<int:assessment_id>/', views.preview_assessment_report, name='preview_assessment_report'),
     path('assessment/download/<int:assessment_id>/', views.download_assessment_report, name='download_assessment_report'),
+    path('training/', views.training, name='training'),
 
 ]
