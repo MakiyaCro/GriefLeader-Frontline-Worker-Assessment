@@ -43,6 +43,13 @@
             height: 2px;
             background-color: currentColor;
         }
+        
+        /* Hide footer on admin dashboard page */
+        {% if request.resolver_match.url_name == 'admin_dashboard' %}
+        .footer {
+            display: none !important;
+        }
+        {% endif %}
     </style>
     
     {% block extra_css %}
@@ -138,12 +145,14 @@
         </div>
     </div>
 
-    {# Footer #}
+    {# Footer - Only show if not on admin dashboard #}
+    {% if request.resolver_match.url_name != 'admin_dashboard' %}
     <footer class="footer">
         <div class="container h-100 d-flex align-items-center justify-content-center">
             <span class="text-muted">&copy; {% now "Y" %} Front Line Worker Assessment. All rights reserved.</span>
         </div>
     </footer>
+    {% endif %}
 
     {# Bootstrap JS Bundle #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
