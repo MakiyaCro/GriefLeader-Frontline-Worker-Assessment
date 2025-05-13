@@ -3,6 +3,8 @@ import logging
 from django.http import HttpResponseForbidden
 from django.conf import settings
 
+#test update to reflah code
+
 logger = logging.getLogger(__name__)
 
 class SecurityMiddleware:
