@@ -259,7 +259,7 @@ def generate_assessment_report(assessment_response, force_refresh=False):
             'candidate_name': assessment.candidate_name,
             'position': assessment.position,
             'submitted_at': assessment_response.submitted_at.strftime('%Y-%m-%d'),
-            'completion_time': str(completion_time).split('.')[0],
+            'completion_time': completion_time,
             'manager_name': assessment.manager_name,
             'region': assessment.region,
             'scores': scores,
