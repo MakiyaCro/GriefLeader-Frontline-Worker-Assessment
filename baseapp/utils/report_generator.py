@@ -196,7 +196,7 @@ def generate_assessment_report(assessment_response, force_refresh=False):
         cache.set(f"{cache_key}_generating", True, 300)  # 5 minute timeout
         
         # Calculate completion time
-        completion_time = assessment_response.submitted_at - assessment.created_at
+        completion_time = assessment.formatted_completion_time
         
         # Get all attributes in one efficient query
         attributes = list(Attribute.objects.filter(
