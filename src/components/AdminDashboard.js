@@ -4,11 +4,12 @@ import AssessmentSection from './AssessmentSection';
 import QuestionPairManager from './QuestionPairManager';
 import HRUserManager from './HRUserManager';
 import ModuleVisibilityMenu from './ModuleVisibilityMenu';
-import { ChevronRight, Upload } from 'lucide-react';
+import { ChevronRight, Upload, Menu, X } from 'lucide-react';
 import AdminNavbar from './AdminNavbar';
 import TrainingMaterialsManager from './TrainingMaterialsManager';
 
 const AdminDashboard = () => {
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [businesses, setBusinesses] = useState([]);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
@@ -51,6 +52,17 @@ const AdminDashboard = () => {
     managersModule: true,
     questionPairsModule: true
   });
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Fetch businesses when component mounts
   useEffect(() => {
@@ -201,6 +213,8 @@ const AdminDashboard = () => {
       
       setSelectedBusiness(business);
       setBusinessDetails(data);
+
+      setIsMobileSidebarOpen(false);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -539,12 +553,13 @@ const AdminDashboard = () => {
   };
 
 
+
   const renderContent = () => {
     if (activeTab === 'training') {
       return (
-        <div className="p-6 w-full">
-          <h1 className="text-2xl font-bold mb-6">Training Materials Management</h1>
-          <p className="mb-6 text-gray-600">
+        <div className="p-4 md:p-6 w-full">
+          <h1 className="text-xl md:text-2xl font-bold mb-6">Training Materials Management</h1>
+          <p className="mb-6 text-gray-600 text-sm md:text-base">
             Manage training materials that will be displayed to all HR users across all businesses.
             These materials appear on the Training page accessible by HR users.
           </p>
@@ -553,96 +568,135 @@ const AdminDashboard = () => {
       );
     } else {
       return (
-        <div className="flex h-full w-full">
-          {/* Module Visibility Menu */}
-          <ModuleVisibilityMenu onToggleModuleVisibility={handleToggleModuleVisibility} />
-
+        <div className="flex h-full w-full relative">
+          {/* Module Visibility Menu - Hidden on mobile */}
+          <div className="hidden md:block">
+            <ModuleVisibilityMenu onToggleModuleVisibility={handleToggleModuleVisibility} />
+          </div>
+  
+          {/* Mobile Menu Button - Only visible on mobile */}
+          <button
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="md:hidden fixed top-4 left-4 z-50 p-3 bg-blue-500 text-white rounded-lg shadow-lg"
+            style={{ minHeight: '44px', minWidth: '44px' }}
+          >
+            <Menu size={20} />
+          </button>
+  
+          {/* Mobile Sidebar Overlay */}
+          {isMobileSidebarOpen && (
+            <div 
+              className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            />
+          )}
+  
           {/* Business Sidebar */}
           {moduleVisibility.sidebarModule ? (
-          <div className="w-64 bg-gray-100 p-4 flex flex-col">
-            <h2 className="text-xl font-bold mb-4">Businesses</h2>
-            <div className="flex-grow overflow-y-auto">
-              {businesses.length === 0 ? (
-                <p className="text-gray-500">No businesses found</p>
-              ) : (
-                <div>
-                  {businesses.map((business) => (
-                    <button
-                      key={business.id}
-                      onClick={() => handleBusinessSelect(business)}
-                      className={`w-full text-left p-2 mb-2 rounded ${
-                        selectedBusiness && selectedBusiness.id === business.id 
-                          ? 'bg-blue-500 text-white' 
-                          : 'hover:bg-gray-200'
-                      }`}
-                    >
-                      {business.name}
-                      {!business.assessment_template_uploaded && (
-                        <span className="text-red-500 ml-2">*</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className={`
+              ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+              fixed md:relative top-0 left-0 w-64 md:w-64 bg-gray-100 p-4 flex flex-col h-full z-50
+              transition-transform duration-300 ease-in-out
+            `}>
+              {/* Mobile Close Button */}
+              <button
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="md:hidden self-end mb-4 p-1 text-gray-500 hover:text-gray-700"
+                style={{ minHeight: '44px', minWidth: '44px' }}
+              >
+                <X size={20} />
+              </button>
+              
+              <h2 className="text-xl font-bold mb-4">Businesses</h2>
+              <div className="flex-grow overflow-y-auto">
+                {businesses.length === 0 ? (
+                  <p className="text-gray-500">No businesses found</p>
+                ) : (
+                  <div>
+                    {businesses.map((business) => (
+                      <button
+                        key={business.id}
+                        onClick={() => handleBusinessSelect(business)}
+                        className={`w-full text-left p-3 mb-2 rounded text-sm md:text-base ${
+                          selectedBusiness && selectedBusiness.id === business.id 
+                            ? 'bg-blue-500 text-white' 
+                            : 'hover:bg-gray-200'
+                        }`}
+                        style={{ minHeight: '44px' }}
+                      >
+                        {business.name}
+                        {!business.assessment_template_uploaded && (
+                          <span className="text-red-500 ml-2">*</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Create Business Button */}
+              <button 
+                onClick={() => setShowBusinessForm(true)}
+                className="w-full mt-4 px-4 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm md:text-base"
+                style={{ minHeight: '44px' }}
+              >
+                Create New Business
+              </button>
             </div>
-            
-            {/* Create Business Button */}
-            <button 
-              onClick={() => setShowBusinessForm(true)}
-              className="w-full mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Create New Business
-            </button>
-          </div>
-        ) : (
-          /* When sidebar is hidden, show a minimal sidebar with just a toggle button */
-          <div className="w-10 bg-gray-100 flex flex-col items-center p-2">
-            <button
-              onClick={() => handleToggleModuleVisibility('sidebarModule', true)}
-              className="mt-2 text-blue-500 hover:text-blue-700"
-              title="Show Business Sidebar"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        )}
-
+          ) : (
+            /* When sidebar is hidden, show a minimal sidebar with just a toggle button */
+            <div className="hidden md:flex w-10 bg-gray-100 flex-col items-center p-2">
+              <button
+                onClick={() => handleToggleModuleVisibility('sidebarModule', true)}
+                className="mt-2 text-blue-500 hover:text-blue-700"
+                title="Show Business Sidebar"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
+  
           {/* Main Content Area */}
-          <div className="flex-1 p-8 bg-white overflow-y-auto">
+          <div className="flex-1 p-4 md:p-8 bg-white overflow-y-auto">
             {/* Success Message */}
             {success && (
-              <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded z-50">
+              <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded z-50 shadow-lg">
                 {success}
               </div>
             )}
-
+  
             {!selectedBusiness ? (
-              <div className="text-center text-gray-500">
-                Select a business to view details
+              <div className="text-center text-gray-500 mt-8 md:mt-16">
+                <div className="md:hidden mb-4">
+                  <p className="text-sm">Tap the menu button to select a business</p>
+                </div>
+                <div className="hidden md:block">
+                  <p>Select a business to view details</p>
+                </div>
               </div>
             ) : (
               <div>
                 {/* Business Header */}
-                <div className="mb-8 flex justify-between items-center">
+                <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
                   <h1 
-                    className="text-3xl font-bold" 
+                    className="text-2xl md:text-3xl font-bold" 
                     style={{color: selectedBusiness.primary_color || '#000000'}}
                   >
                     {selectedBusiness.name}
                   </h1>
-                  <div className="flex items-center">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                     {selectedBusiness.logo_url ? (
-                      <div className="relative mr-4">
+                      <div className="relative">
                         <img 
                           src={selectedBusiness.logo_url} 
                           alt={`${selectedBusiness.name} logo`} 
-                          className="h-16 max-w-xs object-contain"
+                          className="h-12 md:h-16 max-w-xs object-contain"
                         />
                         <label 
-                          className="cursor-pointer absolute bottom-0 right-0 bg-white p-1 rounded-full shadow"
+                          className="cursor-pointer absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow border"
                           title="Change Logo"
                         >
-                          <Upload size={16} className="text-gray-500" />
+                          <Upload size={14} className="text-gray-500" />
                           <input
                             type="file"
                             accept="image/*"
@@ -653,8 +707,9 @@ const AdminDashboard = () => {
                       </div>
                     ) : (
                       <label 
-                        className="cursor-pointer px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 mr-4 flex items-center"
+                        className="cursor-pointer px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center text-sm md:text-base"
                         title="Upload Logo"
+                        style={{ minHeight: '44px' }}
                       >
                         <Upload size={16} className="mr-2" />
                         Upload Logo
@@ -668,25 +723,27 @@ const AdminDashboard = () => {
                     )}
                     <button 
                       onClick={() => setShowDeleteBusinessConfirmation(true)}
-                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 flex items-center"
+                      className="w-full sm:w-auto px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center text-sm md:text-base"
+                      style={{ minHeight: '44px' }}
                     >
                       Delete Business
                     </button>
                   </div>
                 </div>
-
+  
                 {/* Business Details */}
                 {businessDetails && (
                   <div className="w-full">    
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 mb-6 md:mb-8">
                       {/* HR Users Section */}
                       {moduleVisibility.hrUsersModule && (
-                        <div className="bg-gray-50 p-6 rounded-lg">
-                          <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-semibold">HR Users</h2>
+                        <div className="bg-gray-50 p-4 md:p-6 rounded-lg">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-2 sm:space-y-0">
+                            <h2 className="text-lg md:text-xl font-semibold">HR Users</h2>
                             <button 
                               onClick={() => setShowAddHRUserModal(true)}
-                              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                              className="w-full sm:w-auto px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm md:text-base"
+                              style={{ minHeight: '44px' }}
                             >
                               Add HR User
                             </button>
@@ -694,7 +751,7 @@ const AdminDashboard = () => {
                           
                           {businessDetails && (
                             businessDetails.hr_users.length === 0 ? (
-                              <p className="text-gray-500">No HR users found</p>
+                              <p className="text-gray-500 text-sm md:text-base">No HR users found</p>
                             ) : (
                               <HRUserManager
                                 hrUsers={businessDetails.hr_users}
@@ -762,94 +819,135 @@ const AdminDashboard = () => {
                           )}
                         </div>
                       )}
-
+  
                       {/* Assessment Pairs Section */}
                       {moduleVisibility.questionPairsModule && (
-                        <div className="bg-gray-50 p-6 rounded-lg">
-                        <div className="flex justify-between items-center mb-4">
-                          <h2 className="text-xl font-semibold">Assessment Pairs</h2>
-                          <label className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer">
-                            Upload CSV
-                            <input
-                              type="file"
-                              accept=".csv"
-                              onChange={handleAssessmentTemplateUpload}
-                              className="hidden"
+                        <div className="bg-gray-50 p-4 md:p-6 rounded-lg">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-2 sm:space-y-0">
+                            <h2 className="text-lg md:text-xl font-semibold">Assessment Pairs</h2>
+                            <label className="w-full sm:w-auto px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer text-center text-sm md:text-base"
+                                   style={{ minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              Upload CSV
+                              <input
+                                type="file"
+                                accept=".csv"
+                                onChange={handleAssessmentTemplateUpload}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+  
+                          {businessDetails.question_pairs.length === 0 ? (
+                            <p className="text-gray-500 text-sm md:text-base">No assessment pairs found</p>
+                          ) : (
+                            <QuestionPairManager
+                              questionPairs={businessDetails.question_pairs}
+                              onDeletePair={async (pairId) => {
+                                try {
+                                  const response = await fetch(`/api/question-pairs/${pairId}/`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                      'X-CSRFToken': getCsrfToken(),
+                                    }
+                                  });
+                                  
+                                  if (!response.ok) throw new Error('Failed to delete question pair');
+                                  
+                                  // Refresh business details
+                                  await fetchBusinessDetails(selectedBusiness.id);
+                                  
+                                  setSuccess('Question pair deleted successfully');
+                                  setTimeout(() => setSuccess(null), 3000);
+                                } catch (err) {
+                                  setError(err.message);
+                                }
+                              }}
+                              onEditPair={async (pairId, data) => {
+                                try {
+                                  const response = await fetch(`/api/question-pairs/${pairId}/`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'X-CSRFToken': getCsrfToken(),
+                                    },
+                                    body: JSON.stringify(data)
+                                  });
+                                  
+                                  if (!response.ok) throw new Error('Failed to update question pair');
+                                  
+                                  // Refresh business details
+                                  await fetchBusinessDetails(selectedBusiness.id);
+                                  
+                                  setSuccess('Question pair updated successfully');
+                                  setTimeout(() => setSuccess(null), 3000);
+                                } catch (err) {
+                                  setError(err.message);
+                                }
+                              }}
                             />
-                          </label>
-                        </div>
-
-                        {businessDetails.question_pairs.length === 0 ? (
-                          <p className="text-gray-500">No assessment pairs found</p>
-                        ) : (
-                          <QuestionPairManager
-                            questionPairs={businessDetails.question_pairs}
-                            onDeletePair={async (pairId) => {
-                              try {
-                                const response = await fetch(`/api/question-pairs/${pairId}/`, {
-                                  method: 'DELETE',
-                                  headers: {
-                                    'X-CSRFToken': getCsrfToken(),
-                                  }
-                                });
-                                
-                                if (!response.ok) throw new Error('Failed to delete question pair');
-                                
-                                // Refresh business details
-                                await fetchBusinessDetails(selectedBusiness.id);
-                                
-                                setSuccess('Question pair deleted successfully');
-                                setTimeout(() => setSuccess(null), 3000);
-                              } catch (err) {
-                                setError(err.message);
-                              }
-                            }}
-                            onEditPair={async (pairId, data) => {
-                              try {
-                                const response = await fetch(`/api/question-pairs/${pairId}/`, {
-                                  method: 'PUT',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRFToken': getCsrfToken(),
-                                  },
-                                  body: JSON.stringify(data)
-                                });
-                                
-                                if (!response.ok) throw new Error('Failed to update question pair');
-                                
-                                // Refresh business details
-                                await fetchBusinessDetails(selectedBusiness.id);
-                                
-                                setSuccess('Question pair updated successfully');
-                                setTimeout(() => setSuccess(null), 3000);
-                              } catch (err) {
-                                setError(err.message);
-                              }
-                            }}
-                          />
-                        )}
+                          )}
                         </div>
                       )}
-                        
-                      
                     </div>
+                    
                     {/* Manager Section */}
-                      {moduleVisibility.managersModule && (
-                        <div className="bg-gray-50 p-6 rounded-lg mt-8 w-full">
-                          <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-semibold">Managers</h2>
-                            <button 
-                              onClick={() => setShowAddManagerModal(true)}
-                              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                            >
-                              Add Manager
-                            </button>
-                          </div>
-                          
-                          {managers.length === 0 ? (
-                            <p className="text-gray-500">No managers found</p>
-                          ) : (
-                            <div className="overflow-x-auto w-full">
+                    {moduleVisibility.managersModule && (
+                      <div className="bg-gray-50 p-4 md:p-6 rounded-lg mt-6 md:mt-8 w-full">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-2 sm:space-y-0">
+                          <h2 className="text-lg md:text-xl font-semibold">Managers</h2>
+                          <button 
+                            onClick={() => setShowAddManagerModal(true)}
+                            className="w-full sm:w-auto px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm md:text-base"
+                            style={{ minHeight: '44px' }}
+                          >
+                            Add Manager
+                          </button>
+                        </div>
+                        
+                        {managers.length === 0 ? (
+                          <p className="text-gray-500 text-sm md:text-base">No managers found</p>
+                        ) : (
+                          <div className="w-full">
+                            {/* Mobile Card View */}
+                            <div className="md:hidden space-y-4">
+                              {managers.map((manager) => (
+                                <div key={manager.id} className="bg-white p-4 rounded-lg shadow">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <h3 className="font-medium text-base">{manager.name}</h3>
+                                    {manager.is_default && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Default
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-600 mb-1">{manager.email}</p>
+                                  <p className="text-sm text-gray-600 mb-1">{manager.region}</p>
+                                  <p className="text-sm text-gray-600 mb-4">{manager.position}</p>
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => {
+                                        setCurrentManager(manager);
+                                        setShowEditManagerModal(true);
+                                      }}
+                                      className="flex-1 text-indigo-600 hover:text-indigo-900 text-sm py-2 px-3 border border-indigo-600 rounded"
+                                      style={{ minHeight: '44px' }}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteManager(manager.id)}
+                                      className="flex-1 text-red-600 hover:text-red-900 text-sm py-2 px-3 border border-red-600 rounded"
+                                      style={{ minHeight: '44px' }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block overflow-x-auto">
                               <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                   <tr>
@@ -919,20 +1017,22 @@ const AdminDashboard = () => {
                                 </tbody>
                               </table>
                             </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  )}
-                  {/* Add BenchmarkSection here, right after the grid */}
-                  {moduleVisibility.benchmarkModule && (
-                    <BenchmarkSection businessDetails={businessDetails} />
-                  )}
-                  
-                  {moduleVisibility.assessmentModule && (
-                    <AssessmentSection businessDetails={businessDetails} />
-                  )}
-
+                )}
+                
+                {/* Add BenchmarkSection here, right after the grid */}
+                {moduleVisibility.benchmarkModule && (
+                  <BenchmarkSection businessDetails={businessDetails} />
+                )}
+                
+                {moduleVisibility.assessmentModule && (
+                  <AssessmentSection businessDetails={businessDetails} />
+                )}
+  
               </div>
             )}
           </div>
@@ -960,8 +1060,8 @@ const AdminDashboard = () => {
 
       {/* Business Form Modal */}
       {showBusinessForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">Create New Business</h2>
             <form onSubmit={handleCreateBusiness} className="space-y-4">
               <div>
@@ -1081,8 +1181,8 @@ const AdminDashboard = () => {
 
       {/* Add HR User Modal */}
       {showAddHRUserModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">Add HR User</h2>
             <form onSubmit={handleAddHRUser} className="space-y-4">
               <div>
@@ -1157,8 +1257,8 @@ const AdminDashboard = () => {
 
       {/* Delete Business Confirmation Modal */}
       {showDeleteBusinessConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-red-600 mb-4">Confirm Business Deletion</h2>
             <p className="text-gray-700 mb-6">
               Are you sure you want to delete the business "{selectedBusiness.name}"? 
@@ -1184,8 +1284,8 @@ const AdminDashboard = () => {
 
       {/* Add Manager Modal */}
       {showAddManagerModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-4xl mx-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">Add Manager</h2>
             <form onSubmit={handleAddManager} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1277,8 +1377,8 @@ const AdminDashboard = () => {
 
       {/* Edit Manager Modal */}
       {showEditManagerModal && currentManager && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-4xl mx-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">Edit Manager</h2>
             <form onSubmit={handleEditManager} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1368,8 +1468,8 @@ const AdminDashboard = () => {
 
       {/* Error Modal */}
       {error && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-red-600 mb-4">Error</h2>
             <p className="text-gray-700 mb-6">{error}</p>
             <button

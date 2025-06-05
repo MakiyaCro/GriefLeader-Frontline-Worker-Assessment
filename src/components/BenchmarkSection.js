@@ -298,19 +298,19 @@ Best regards,
   };
 
   return (
-    <div className="bg-gray-50 p-6 rounded-lg mt-8">
-      {/* Tab Navigation */}
-      <div className="flex border-b mb-6">
+    <div className="bg-gray-50 p-4 md:p-6 rounded-lg mt-6 md:mt-8">
+      {/* Tab Navigation - Mobile Responsive */}
+      <div className="flex flex-wrap border-b mb-4 md:mb-6 overflow-x-auto">
         <button
-          className={`px-4 py-2 mr-2 ${activeTab === 'setup' 
+          className={`px-3 md:px-4 py-2 mr-2 mb-2 text-sm md:text-base whitespace-nowrap ${activeTab === 'setup' 
             ? 'border-b-2 border-blue-500 text-blue-500' 
             : 'text-gray-500'}`}
           onClick={() => setActiveTab('setup')}
         >
-          Benchmark Setup
+          Setup
         </button>
         <button
-          className={`px-4 py-2 mr-2 ${activeTab === 'template' 
+          className={`px-3 md:px-4 py-2 mr-2 mb-2 text-sm md:text-base whitespace-nowrap ${activeTab === 'template' 
             ? 'border-b-2 border-blue-500 text-blue-500' 
             : 'text-gray-500'}`}
           onClick={() => setActiveTab('template')}
@@ -318,7 +318,7 @@ Best regards,
           Email Template
         </button>
         <button
-          className={`px-4 py-2 ${activeTab === 'results' 
+          className={`px-3 md:px-4 py-2 mb-2 text-sm md:text-base whitespace-nowrap ${activeTab === 'results' 
             ? 'border-b-2 border-blue-500 text-blue-500' 
             : 'text-gray-500'}`}
           onClick={() => setActiveTab('results')}
@@ -326,30 +326,30 @@ Best regards,
           Results
         </button>
       </div>
-
+  
       {/* Tab Content */}
       {activeTab === 'setup' ? (
         <div>
           {/* Upload Section */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2">Upload Benchmark Emails</h3>
-            <div className="flex items-center space-x-4">
+          <div className="mb-4 md:mb-6">
+            <h3 className="text-lg font-semibold mb-3">Upload Benchmark Emails</h3>
+            <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
               <input
                 type="file"
                 accept=".csv"
                 onChange={handleFileUpload}
-                className="p-2 border rounded"
+                className="p-2 border rounded w-full md:w-auto"
               />
               <p className="text-sm text-gray-500">
                 CSV should include email and region columns
               </p>
             </div>
           </div>
-
+  
           {/* Manual Add Section */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2">Add Email Manually</h3>
-            <form onSubmit={handleAddEmail} className="flex space-x-4">
+          <div className="mb-4 md:mb-6">
+            <h3 className="text-lg font-semibold mb-3">Add Email Manually</h3>
+            <form onSubmit={handleAddEmail} className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
               <input
                 type="email"
                 value={newEmail.email}
@@ -363,57 +363,64 @@ Best regards,
                 value={newEmail.region}
                 onChange={(e) => setNewEmail({ ...newEmail, region: e.target.value })}
                 placeholder="Region"
-                className="w-48 p-2 border rounded"
+                className="w-full md:w-48 p-2 border rounded"
                 required
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="w-full md:w-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                style={{ minHeight: '44px' }}
               >
                 Add
               </button>
             </form>
           </div>
-
-          {/* Email List */}
+  
+          {/* Email List - Mobile Responsive */}
           <div>
-            <h3 className="text-lg font-semibold mb-2">Benchmark Emails</h3>
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-2 text-left">Email</th>
-                    <th className="px-4 py-2 text-left">Region</th>
-                    <th className="px-4 py-2 text-center">Status</th>
-                    <th className="px-4 py-2 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <h3 className="text-lg font-semibold mb-3">Benchmark Emails</h3>
+            
+            {benchmarkEmails.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                <Mail className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                <p className="text-base md:text-lg">No benchmark emails found</p>
+                <p className="text-sm">Upload a CSV or add emails manually to get started.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                {/* Mobile Card View */}
+                <div className="md:hidden">
                   {benchmarkEmails.map((email, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="px-4 py-2">{email.email}</td>
-                      <td className="px-4 py-2">{email.region}</td>
-                      <td className="px-4 py-2 text-center">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          email.completed 
-                            ? 'bg-green-100 text-green-800' 
-                            : email.sent 
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {email.completed 
-                            ? 'Completed' 
-                            : email.sent 
-                              ? 'Sent' 
-                              : 'Not Sent'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex justify-end space-x-2">
+                    <div key={index} className="border-b p-4 last:border-b-0">
+                      <div className="space-y-3">
+                        {/* Header with status */}
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-base truncate">{email.email}</h3>
+                            <p className="text-sm text-gray-600">{email.region}</p>
+                          </div>
+                          <span className={`ml-2 px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
+                            email.completed 
+                              ? 'bg-green-100 text-green-800' 
+                              : email.sent 
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {email.completed 
+                              ? 'Completed' 
+                              : email.sent 
+                                ? 'Sent' 
+                                : 'Not Sent'}
+                          </span>
+                        </div>
+                        
+                        {/* Mobile Actions */}
+                        <div className="flex flex-wrap gap-2">
                           {!email.completed && (
                             <button
                               onClick={() => handleSendEmail(email)}
-                              className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+                              className="flex-1 min-w-0 inline-flex items-center justify-center px-3 py-2 rounded text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+                              style={{ minHeight: '40px' }}
                             >
                               {email.sent ? (
                                 <>
@@ -437,38 +444,125 @@ Best regards,
                               });
                               setShowEditModal(true);
                             }}
-                            className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-blue-600 hover:bg-blue-100"
+                            className="flex-1 min-w-0 inline-flex items-center justify-center px-3 py-2 rounded text-sm font-medium text-blue-600 bg-blue-100 hover:bg-blue-200"
+                            style={{ minHeight: '40px' }}
                             disabled={email.completed}
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
                           </button>
                           <button
                             onClick={() => {
                               setCurrentEmail(email);
                               setShowDeleteConfirmation(true);
                             }}
-                            className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-red-600 hover:bg-red-100"
+                            className="flex-1 min-w-0 inline-flex items-center justify-center px-3 py-2 rounded text-sm font-medium text-red-600 bg-red-100 hover:bg-red-200"
+                            style={{ minHeight: '40px' }}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+                
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-4 py-2 text-left">Email</th>
+                        <th className="px-4 py-2 text-left">Region</th>
+                        <th className="px-4 py-2 text-center">Status</th>
+                        <th className="px-4 py-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {benchmarkEmails.map((email, index) => (
+                        <tr key={index} className="border-t hover:bg-gray-50">
+                          <td className="px-4 py-2">{email.email}</td>
+                          <td className="px-4 py-2">{email.region}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              email.completed 
+                                ? 'bg-green-100 text-green-800' 
+                                : email.sent 
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {email.completed 
+                                ? 'Completed' 
+                                : email.sent 
+                                  ? 'Sent' 
+                                  : 'Not Sent'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="flex justify-end space-x-2">
+                              {!email.completed && (
+                                <button
+                                  onClick={() => handleSendEmail(email)}
+                                  className="inline-flex items-center px-3 py-1 rounded text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+                                >
+                                  {email.sent ? (
+                                    <>
+                                      <RefreshCw className="w-4 h-4 mr-1" />
+                                      Resend
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Send className="w-4 h-4 mr-1" />
+                                      Send
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setCurrentEmail({
+                                    originalEmail: email.email,
+                                    email: email.email,
+                                    region: email.region
+                                  });
+                                  setShowEditModal(true);
+                                }}
+                                className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-blue-600 hover:bg-blue-100"
+                                disabled={email.completed}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setCurrentEmail(email);
+                                  setShowDeleteConfirmation(true);
+                                }}
+                                className="inline-flex items-center px-2 py-1 rounded text-sm font-medium text-red-600 hover:bg-red-100"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : activeTab === 'template' ? (
         <div>
           {/* Email Template Editor */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-2 md:space-y-0">
               <h3 className="text-lg font-semibold">Benchmark Email Template</h3>
               <button
                 onClick={saveEmailTemplate}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center"
+                className="w-full md:w-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
+                style={{ minHeight: '44px' }}
               >
                 <Mail className="w-4 h-4 mr-2" />
                 Save Template
@@ -476,54 +570,57 @@ Best regards,
             </div>
             
             {templateSaved && (
-              <div className="mb-4 p-2 bg-green-100 text-green-800 rounded">
+              <div className="mb-4 p-3 bg-green-100 text-green-800 rounded text-sm md:text-base">
                 Template saved successfully
               </div>
             )}
             
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Subject
-              </label>
-              <input
-                type="text"
-                value={emailTemplate.subject}
-                onChange={(e) => setEmailTemplate({...emailTemplate, subject: e.target.value})}
-                className="w-full p-2 border rounded"
-              />
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Body
-              </label>
-              <textarea
-                value={emailTemplate.body}
-                onChange={(e) => setEmailTemplate({...emailTemplate, body: e.target.value})}
-                className="w-full p-2 border rounded h-64 font-mono"
-              />
-            </div>
-            
-            <div className="bg-gray-50 p-4 rounded">
-              <h4 className="text-sm font-semibold mb-2">Available Template Variables:</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li><code>{'{{business_name}}'}</code> - Name of the business</li>
-                <li><code>{'{{assessment_url}}'}</code> - The unique assessment URL</li>
-                <li><code>{'{{candidate_name}}'}</code> - The recipient's name (derived from email)</li>
-                <li><code>{'{{region}}'}</code> - The recipient's region</li>
-              </ul>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Subject
+                </label>
+                <input
+                  type="text"
+                  value={emailTemplate.subject}
+                  onChange={(e) => setEmailTemplate({...emailTemplate, subject: e.target.value})}
+                  className="w-full p-2 md:p-3 border rounded text-sm md:text-base"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Body
+                </label>
+                <textarea
+                  value={emailTemplate.body}
+                  onChange={(e) => setEmailTemplate({...emailTemplate, body: e.target.value})}
+                  className="w-full p-2 md:p-3 border rounded h-48 md:h-64 font-mono text-sm"
+                />
+              </div>
+              
+              <div className="bg-gray-50 p-3 md:p-4 rounded">
+                <h4 className="text-sm font-semibold mb-2">Available Template Variables:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs md:text-sm text-gray-600">
+                  <div><code>{'{{business_name}}'}</code> - Name of the business</div>
+                  <div><code>{'{{assessment_url}}'}</code> - The unique assessment URL</div>
+                  <div><code>{'{{candidate_name}}'}</code> - The recipient's name</div>
+                  <div><code>{'{{region}}'}</code> - The recipient's region</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       ) : (
         <div>
           {/* Results View */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 md:mb-6 space-y-2 md:space-y-0">
             <h3 className="text-lg font-semibold">Benchmark Results</h3>
-            <div className="flex space-x-4">
+            <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
               <button
                 onClick={() => fetchBenchmarkData(selectedRegion)}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center"
+                className="w-full md:w-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
+                style={{ minHeight: '44px' }}
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Update Results
@@ -531,7 +628,8 @@ Best regards,
               <select
                 value={selectedRegion}
                 onChange={(e) => setSelectedRegion(e.target.value)}
-                className="p-2 border rounded"
+                className="w-full md:w-auto p-2 border rounded"
+                style={{ minHeight: '44px' }}
               >
                 {regions.map(region => (
                   <option key={region} value={region}>
@@ -541,59 +639,106 @@ Best regards,
               </select>
             </div>
           </div>
-
+  
           {benchmarkData.length > 0 ? (
-            <div className="bg-white p-6 rounded-lg shadow">
-              <div className="h-96">
-                <BarChart
-                  width={800}
-                  height={300}
-                  data={benchmarkData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="attribute" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="score" fill="#3B82F6" name="Average Score (%)" />
-                </BarChart>
+            <div className="bg-white p-4 md:p-6 rounded-lg shadow">
+              {/* Mobile-Responsive Chart */}
+              <div className="h-64 md:h-96 w-full mb-6 overflow-x-auto">
+                <div className="min-w-full md:min-w-0">
+                  <BarChart
+                    width={Math.max(400, window.innerWidth > 768 ? 800 : window.innerWidth - 100)}
+                    height={window.innerWidth > 768 ? 300 : 250}
+                    data={benchmarkData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="attribute" 
+                      tick={{ fontSize: window.innerWidth > 768 ? 12 : 10 }}
+                      interval={window.innerWidth > 768 ? 0 : 'preserveStartEnd'}
+                    />
+                    <YAxis 
+                      domain={[0, 100]} 
+                      tick={{ fontSize: window.innerWidth > 768 ? 12 : 10 }}
+                    />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="score" fill="#3B82F6" name="Average Score (%)" />
+                  </BarChart>
+                </div>
               </div>
-
-              <div className="mt-6">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-4 py-2 text-left">Attribute</th>
-                      <th className="px-4 py-2 text-right">Average Score (%)</th>
-                      <th className="px-4 py-2 text-right">Responses</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {benchmarkData.map((result, index) => (
-                      <tr key={index} className="border-t">
-                        <td className="px-4 py-2">{result.attribute}</td>
-                        <td className="px-4 py-2 text-right">{result.score.toFixed(1)}%</td>
-                        <td className="px-4 py-2 text-right">{result.responses}</td>
+  
+              {/* Results Table - Mobile Responsive */}
+              <div>
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {benchmarkData.map((result, index) => (
+                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-medium text-base">{result.attribute}</h4>
+                        <span className="text-lg font-bold text-blue-600">
+                          {result.score.toFixed(1)}%
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {result.responses} responses
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-4 py-2 text-left">Attribute</th>
+                        <th className="px-4 py-2 text-right">Average Score (%)</th>
+                        <th className="px-4 py-2 text-right">Responses</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {benchmarkData.map((result, index) => (
+                        <tr key={index} className="border-t hover:bg-gray-50">
+                          <td className="px-4 py-2">{result.attribute}</td>
+                          <td className="px-4 py-2 text-right font-semibold">{result.score.toFixed(1)}%</td>
+                          <td className="px-4 py-2 text-right">{result.responses}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="text-center text-gray-500 py-8">
-              {isLoading ? 'Loading data...' : 'No benchmark data available'}
+            <div className="text-center text-gray-500 py-8 md:py-12">
+              <div className="mb-4">
+                <BarChart className="w-12 h-12 md:w-16 md:h-16 mx-auto text-gray-300" />
+              </div>
+              <h3 className="text-lg md:text-xl font-medium mb-2">
+                {isLoading ? 'Loading benchmark data...' : 'No benchmark data available'}
+              </h3>
+              <p className="text-sm md:text-base text-gray-400">
+                {isLoading ? 'Please wait while we fetch your results.' : 'Complete some benchmark assessments to see results here.'}
+              </p>
             </div>
           )}
         </div>
       )}
-
+  
       {/* Edit Benchmark Email Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h2 className="text-2xl font-bold mb-6">Edit Benchmark Email</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl md:text-2xl font-bold">Edit Benchmark Email</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-500 hover:text-gray-700 p-1"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
             <form onSubmit={handleEditEmail} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -603,7 +748,7 @@ Best regards,
                   type="email"
                   value={currentEmail.email}
                   onChange={(e) => setCurrentEmail({...currentEmail, email: e.target.value})}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 md:p-3 border rounded"
                   required
                 />
               </div>
@@ -616,22 +761,24 @@ Best regards,
                   type="text"
                   value={currentEmail.region}
                   onChange={(e) => setCurrentEmail({...currentEmail, region: e.target.value})}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 md:p-3 border rounded"
                   required
                 />
               </div>
-
-              <div className="flex justify-end space-x-4 pt-2">
+  
+              <div className="flex flex-col md:flex-row justify-end space-y-2 md:space-y-0 md:space-x-4 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                  className="w-full md:w-auto px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                  style={{ minHeight: '44px' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  className="w-full md:w-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  style={{ minHeight: '44px' }}
                 >
                   Update
                 </button>
@@ -640,29 +787,42 @@ Best regards,
           </div>
         </div>
       )}
-
+  
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md">
-            <h2 className="text-xl font-bold text-red-600 mb-4">Confirm Deletion</h2>
-            <p className="text-gray-700 mb-6">
-              Are you sure you want to delete the benchmark for {currentEmail.email}? 
-              This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-red-600">Confirm Deletion</h2>
               <button
                 onClick={() => {
                   setShowDeleteConfirmation(false);
                   setCurrentEmail(null);
                 }}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                className="text-gray-500 hover:text-gray-700 p-1"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <p className="text-gray-700 mb-6 text-sm md:text-base">
+              Are you sure you want to delete the benchmark for {currentEmail.email}? 
+              This action cannot be undone.
+            </p>
+            <div className="flex flex-col md:flex-row justify-end space-y-2 md:space-y-0 md:space-x-4">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirmation(false);
+                  setCurrentEmail(null);
+                }}
+                className="w-full md:w-auto px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                style={{ minHeight: '44px' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteEmail}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                className="w-full md:w-auto px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                style={{ minHeight: '44px' }}
               >
                 Delete
               </button>
@@ -670,16 +830,25 @@ Best regards,
           </div>
         </div>
       )}
-
+  
       {/* Error Message */}
       {error && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md">
-            <h3 className="text-lg font-semibold text-red-600 mb-2">Error</h3>
-            <p className="text-gray-700 mb-4">{error}</p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-red-600">Error</h3>
+              <button
+                onClick={() => setError(null)}
+                className="text-gray-500 hover:text-gray-700 p-1"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <p className="text-gray-700 mb-4 text-sm md:text-base">{error}</p>
             <button
               onClick={() => setError(null)}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              style={{ minHeight: '44px' }}
             >
               Close
             </button>

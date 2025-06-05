@@ -221,8 +221,8 @@ const ManagerSection = ({ businessDetails }) => {
 
       {/* Add Manager Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Add New Manager</h3>
             <form onSubmit={handleAddManager} className="space-y-4">
               <div>
@@ -283,8 +283,8 @@ const ManagerSection = ({ businessDetails }) => {
 
       {/* Edit Manager Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Edit Manager</h3>
             <form onSubmit={handleEditManager} className="space-y-4">
               <div>
@@ -345,8 +345,8 @@ const ManagerSection = ({ businessDetails }) => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedManager && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
             <p className="text-gray-700 mb-6">
               Are you sure you want to delete the manager <strong>{selectedManager.name}</strong>? 
@@ -375,8 +375,8 @@ const ManagerSection = ({ businessDetails }) => {
 
       {/* Error Modal */}
       {error && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-red-600 mb-2">Error</h3>
             <p className="text-gray-700 mb-4">{error}</p>
             <button

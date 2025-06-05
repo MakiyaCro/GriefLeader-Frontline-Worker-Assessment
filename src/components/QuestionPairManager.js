@@ -59,7 +59,7 @@ const QuestionPairManager = ({ questionPairs, onDeletePair, onEditPair }) => {
               {pair.attribute2__name}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <p className="text-sm text-gray-700">{pair.statement_a}</p>
             <p className="text-sm text-gray-700">{pair.statement_b}</p>
           </div>
@@ -68,8 +68,8 @@ const QuestionPairManager = ({ questionPairs, onDeletePair, onEditPair }) => {
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-2xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Edit Question Pair</h2>
               <button 

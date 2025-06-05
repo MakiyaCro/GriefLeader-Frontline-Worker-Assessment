@@ -545,7 +545,8 @@ const TrainingMaterialsManager = ({ businessId }) => {
       
       {/* Training Materials List */}
       <div className="bg-white p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+
           {trainingMaterials
             .sort((a, b) => a.order - b.order)
             .map(material => (
@@ -556,33 +557,33 @@ const TrainingMaterialsManager = ({ businessId }) => {
                 }`}
               >
                 <div 
-                  className="p-4 flex items-start"
+                  className="p-3 md:p-4 flex items-start"
                   style={{ borderTop: `4px solid ${material.color}` }}
                 >
-                  <div className="mr-4">
+                  <div className="mr-3 md:mr-4 flex-shrink-0">
                     <div 
-                      className="w-10 h-10 flex items-center justify-center rounded-full"
+                      className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full"
                       style={{ backgroundColor: material.color, color: 'white' }}
                     >
                       {getIconComponent(material.icon)}
                     </div>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <h3 className="font-medium text-lg">{material.title}</h3>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-medium text-base md:text-lg leading-tight">{material.title}</h3>
                       {!material.active && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 flex-shrink-0">
                           Hidden
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-600 mt-1">{material.description}</p>
+                    <p className="text-gray-600 mt-1 text-sm">{material.description}</p>
                     
                     {material.document_url && (
                       <div className="mt-2">
                         <div className="flex items-center">
-                          <Link size={16} className="text-blue-500 mr-1" />
-                          <span className="text-sm text-gray-600 truncate" style={{maxWidth: '200px'}}>
+                          <Link size={14} className="text-blue-500 mr-1 flex-shrink-0" />
+                          <span className="text-sm text-gray-600 truncate">
                             {isGoogleDriveUrl(material.document_url) 
                               ? 'Google Drive Document' 
                               : material.document_url}
@@ -592,9 +593,9 @@ const TrainingMaterialsManager = ({ businessId }) => {
                           href={material.document_url} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline inline-flex items-center mt-2"
+                          className="text-blue-600 hover:underline inline-flex items-center mt-2 text-sm"
                         >
-                          <ExternalLink size={16} className="mr-1" />
+                          <ExternalLink size={14} className="mr-1" />
                           View Document
                         </a>
                       </div>
@@ -679,8 +680,8 @@ const TrainingMaterialsManager = ({ businessId }) => {
       
       {/* Add Training Material Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">Add Training Material</h2>
             
             <form onSubmit={handleAddMaterial}>
@@ -811,8 +812,8 @@ const TrainingMaterialsManager = ({ businessId }) => {
       
       {/* Edit Training Material Modal */}
       {showEditModal && currentMaterial && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">Edit Training Material</h2>
             
             <form onSubmit={handleEditMaterial}>
@@ -956,7 +957,7 @@ const TrainingMaterialsManager = ({ businessId }) => {
       
       {/* Delete Confirmation Modal */}
       {showDeleteModal && currentMaterial && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg max-w-md">
             <h2 className="text-xl font-bold text-red-600 mb-4">Delete Training Material</h2>
             <p className="text-gray-700 mb-6">
