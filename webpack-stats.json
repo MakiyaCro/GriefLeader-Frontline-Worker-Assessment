@@ -1,20 +1,20 @@
 {
   "status": "done",
   "assets": {
-    "main.80561ed1f3fc424f59ff.js": {
-      "name": "main.80561ed1f3fc424f59ff.js",
-      "path": "D:\\griefleaders-applicatios\\Front-Line-Worker-Attribute-Assessment\\FrontLWAA\\webpack-dist\\main.80561ed1f3fc424f59ff.js",
-      "publicPath": "/static/webpack-dist/main.80561ed1f3fc424f59ff.js"
+    "main.7397afee038f7bf8dd73.js": {
+      "name": "main.7397afee038f7bf8dd73.js",
+      "path": "D:\\griefleaders-applicatios\\Front-Line-Worker-Attribute-Assessment\\FrontLWAA\\webpack-dist\\main.7397afee038f7bf8dd73.js",
+      "publicPath": "/static/webpack-dist/main.7397afee038f7bf8dd73.js"
     },
-    "main.80561ed1f3fc424f59ff.js.LICENSE.txt": {
-      "name": "main.80561ed1f3fc424f59ff.js.LICENSE.txt",
-      "path": "D:\\griefleaders-applicatios\\Front-Line-Worker-Attribute-Assessment\\FrontLWAA\\webpack-dist\\main.80561ed1f3fc424f59ff.js.LICENSE.txt",
-      "publicPath": "/static/webpack-dist/main.80561ed1f3fc424f59ff.js.LICENSE.txt"
+    "main.7397afee038f7bf8dd73.js.LICENSE.txt": {
+      "name": "main.7397afee038f7bf8dd73.js.LICENSE.txt",
+      "path": "D:\\griefleaders-applicatios\\Front-Line-Worker-Attribute-Assessment\\FrontLWAA\\webpack-dist\\main.7397afee038f7bf8dd73.js.LICENSE.txt",
+      "publicPath": "/static/webpack-dist/main.7397afee038f7bf8dd73.js.LICENSE.txt"
     }
   },
   "chunks": {
     "main": [
-      "main.80561ed1f3fc424f59ff.js"
+      "main.7397afee038f7bf8dd73.js"
     ]
   },
   "publicPath": "/static/webpack-dist/"

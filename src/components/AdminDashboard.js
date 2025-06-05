@@ -576,58 +576,93 @@ const AdminDashboard = () => {
   
           {/* Mobile Menu Button - Only visible on mobile */}
           <button
-            onClick={() => setIsMobileSidebarOpen(true)}
-            className="md:hidden fixed top-4 left-4 z-50 p-3 bg-blue-500 text-white rounded-lg shadow-lg"
+            onClick={() => {
+              console.log('Opening mobile sidebar'); // Debug log
+              setIsMobileSidebarOpen(true);
+            }}
+            className="md:hidden fixed top-4 left-4 z-[60] p-3 bg-blue-500 text-white rounded-lg shadow-lg hover:bg-blue-600 transition-colors"
             style={{ minHeight: '44px', minWidth: '44px' }}
           >
             <Menu size={20} />
           </button>
-  
+
           {/* Mobile Sidebar Overlay */}
           {isMobileSidebarOpen && (
             <div 
-              className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
-              onClick={() => setIsMobileSidebarOpen(false)}
+              className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-[55]"
+              onClick={() => {
+                console.log('Overlay clicked - closing sidebar'); // Debug log
+                setIsMobileSidebarOpen(false);
+              }}
             />
           )}
-  
-          {/* Business Sidebar */}
-          {moduleVisibility.sidebarModule ? (
+
+          {/* Business Sidebar - FIXED VERSION */}
+          {moduleVisibility.sidebarModule && (
             <div className={`
-              ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-              fixed md:relative top-0 left-0 w-64 md:w-64 bg-gray-100 p-4 flex flex-col h-full z-50
-              transition-transform duration-300 ease-in-out
+              fixed md:relative top-0 left-0 w-80 md:w-64 bg-white md:bg-gray-100 
+              p-4 flex flex-col h-full shadow-2xl md:shadow-none border-r md:border-r-0
+              transition-transform duration-300 ease-in-out z-[56]
+              ${isMobileSidebarOpen 
+                ? 'transform translate-x-0' 
+                : 'transform -translate-x-full md:translate-x-0'
+              }
             `}>
-              {/* Mobile Close Button */}
-              <button
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="md:hidden self-end mb-4 p-1 text-gray-500 hover:text-gray-700"
-                style={{ minHeight: '44px', minWidth: '44px' }}
-              >
-                <X size={20} />
-              </button>
+              {/* Mobile Header with Close Button */}
+              <div className="md:hidden flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-800">Menu</h2>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent event bubbling
+                    console.log('Closing sidebar'); // Debug log
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors"
+                  style={{ minHeight: '44px', minWidth: '44px' }}
+                >
+                  <X size={24} />
+                </button>
+              </div>
               
-              <h2 className="text-xl font-bold mb-4">Businesses</h2>
+              {/* Desktop Title */}
+              <h2 className="hidden md:block text-xl font-bold mb-4 text-gray-800">Businesses</h2>
+              
+              {/* Business List */}
               <div className="flex-grow overflow-y-auto">
                 {businesses.length === 0 ? (
-                  <p className="text-gray-500">No businesses found</p>
+                  <div className="text-center text-gray-500 py-8">
+                    <div className="mb-3">
+                      <svg className="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <p className="text-sm">No businesses found</p>
+                  </div>
                 ) : (
-                  <div>
+                  <div className="space-y-2">
                     {businesses.map((business) => (
                       <button
                         key={business.id}
-                        onClick={() => handleBusinessSelect(business)}
-                        className={`w-full text-left p-3 mb-2 rounded text-sm md:text-base ${
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent event bubbling
+                          console.log('Business selected:', business.name); // Debug log
+                          handleBusinessSelect(business);
+                          // Auto-close mobile sidebar when business selected
+                          setIsMobileSidebarOpen(false);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg text-sm md:text-base transition-all duration-200 ${
                           selectedBusiness && selectedBusiness.id === business.id 
-                            ? 'bg-blue-500 text-white' 
-                            : 'hover:bg-gray-200'
+                            ? 'bg-blue-500 text-white shadow-md' 
+                            : 'hover:bg-gray-100 md:hover:bg-gray-200 text-gray-800 hover:shadow-sm'
                         }`}
                         style={{ minHeight: '44px' }}
                       >
-                        {business.name}
-                        {!business.assessment_template_uploaded && (
-                          <span className="text-red-500 ml-2">*</span>
-                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="truncate font-medium">{business.name}</span>
+                          {!business.assessment_template_uploaded && (
+                            <span className="text-red-500 ml-2 flex-shrink-0 text-xs">●</span>
+                          )}
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -635,20 +670,30 @@ const AdminDashboard = () => {
               </div>
               
               {/* Create Business Button */}
-              <button 
-                onClick={() => setShowBusinessForm(true)}
-                className="w-full mt-4 px-4 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm md:text-base"
-                style={{ minHeight: '44px' }}
-              >
-                Create New Business
-              </button>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent event bubbling
+                    console.log('Create business clicked'); // Debug log
+                    setShowBusinessForm(true);
+                    // Auto-close mobile sidebar when opening form
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  className="w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm md:text-base font-medium transition-colors shadow-sm hover:shadow-md"
+                  style={{ minHeight: '44px' }}
+                >
+                  + Create New Business
+                </button>
+              </div>
             </div>
-          ) : (
-            /* When sidebar is hidden, show a minimal sidebar with just a toggle button */
+          )}
+  
+          {/* When sidebar module is hidden, show minimal toggle */}
+          {!moduleVisibility.sidebarModule && (
             <div className="hidden md:flex w-10 bg-gray-100 flex-col items-center p-2">
               <button
                 onClick={() => handleToggleModuleVisibility('sidebarModule', true)}
-                className="mt-2 text-blue-500 hover:text-blue-700"
+                className="mt-2 text-blue-500 hover:text-blue-700 p-2 rounded hover:bg-blue-50"
                 title="Show Business Sidebar"
               >
                 <ChevronRight size={20} />
