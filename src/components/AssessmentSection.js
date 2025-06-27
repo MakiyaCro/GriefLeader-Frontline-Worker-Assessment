@@ -253,6 +253,11 @@ const AssessmentSection = ({ businessDetails }) => {
     });
   };
 
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768;
+  };
+
   return (
     <div className="bg-gray-50 p-6 rounded-lg mt-8">
       {/* Header section */}
@@ -961,56 +966,112 @@ const AssessmentSection = ({ businessDetails }) => {
       
       {/* Report Preview Modal */}
       {showReportModal && selectedAssessment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
-          <div className="bg-white rounded-lg w-full h-full md:w-[95vw] md:h-[95vh] flex flex-col">
-            {/* Header */}
-            <div className="flex justify-between items-center p-3 md:p-4 border-b flex-shrink-0">
-              <h3 className="text-lg md:text-xl font-semibold">Assessment Report Preview</h3>
-              <button
-                onClick={() => {
-                  setShowReportModal(false);
-                  setSelectedAssessment(null);
-                }}
-                className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
+        <div className="bg-white rounded-lg w-full h-full md:w-[95vw] md:h-[95vh] flex flex-col max-w-7xl">
+          {/* Header */}
+          <div className="flex justify-between items-center p-3 md:p-4 border-b flex-shrink-0">
+            <h3 className="text-lg md:text-xl font-semibold">Assessment Report</h3>
+            <button
+              onClick={() => {
+                setShowReportModal(false);
+                setSelectedAssessment(null);
+              }}
+              className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          
+          {/* Content - Different for mobile vs desktop */}
+          <div className="flex-1 p-2 md:p-4 min-h-0 flex flex-col">
+            {isMobileDevice() ? (
+              // Mobile: Show download options instead of iframe
+              <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 px-4">
+                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
+                  <FileText className="w-10 h-10 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">
+                    Assessment Report Ready
+                  </h4>
+                  <p className="text-gray-600 mb-4">
+                    Your assessment report for <strong>{selectedAssessment.candidate_name}</strong> is ready to view.
+                  </p>
+                  <p className="text-sm text-gray-500 mb-6">
+                    For the best viewing experience on mobile, we recommend downloading the PDF or opening it in a new tab.
+                  </p>
+                </div>
+                
+                <div className="space-y-3 w-full max-w-sm">
+                  <button
+                    onClick={() => {
+                      window.open(`/api/admin/assessments/${selectedAssessment.id}/preview/`, '_blank');
+                    }}
+                    className="w-full inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+                  >
+                    <Eye className="w-5 h-5 mr-2" />
+                    Open in New Tab
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      window.location.href = `/api/admin/assessments/${selectedAssessment.id}/download/`;
+                    }}
+                    className="w-full inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100"
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Download PDF
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Desktop: Show iframe preview
+              <>
+                <iframe
+                  src={`/api/admin/assessments/${selectedAssessment.id}/preview/`}
+                  className="w-full h-full border border-gray-200 rounded shadow-sm"
+                  style={{ minHeight: '500px' }}
+                  title="Assessment Report Preview"
+                  onLoad={() => {
+                    // Optional: Handle successful load
+                    console.log('PDF loaded successfully');
+                  }}
+                  onError={() => {
+                    // Optional: Handle load error
+                    console.error('Failed to load PDF preview');
+                  }}
+                />
+              </>
+            )}
+          </div>
+          
+          {/* Footer */}
+          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4 p-3 md:p-4 border-t flex-shrink-0 bg-gray-50">
+            <button
+              onClick={() => {
+                setShowReportModal(false);
+                setSelectedAssessment(null);
+              }}
+              className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+            >
+              Close
+            </button>
             
-            {/* PDF Preview Container - Takes up almost all available space */}
-            <div className="flex-1 p-2 md:p-4 min-h-0">
-              <iframe
-                src={`/api/admin/assessments/${selectedAssessment.id}/preview/`}
-                className="w-full h-full border border-gray-200 rounded shadow-sm"
-                style={{ minHeight: '500px' }}
-                title="Assessment Report Preview"
-              />
-            </div>
-            
-            {/* Footer */}
-            <div className="flex justify-end space-x-4 p-3 md:p-4 border-t flex-shrink-0 bg-gray-50">
-              <button
-                onClick={() => {
-                  setShowReportModal(false);
-                  setSelectedAssessment(null);
-                }}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
-              >
-                Close Preview
-              </button>
+            {!isMobileDevice() && (
               <button
                 onClick={() => {
                   window.location.href = `/api/admin/assessments/${selectedAssessment.id}/download/`;
                 }}
-                className="inline-flex items-center px-4 py-2 rounded text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 rounded text-sm font-medium text-white bg-blue-500 hover:bg-blue-600"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </button>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* Resend Confirmation Modal */}
       {showResendModal && selectedAssessment && (
