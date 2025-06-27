@@ -577,7 +577,7 @@ const AdminDashboard = () => {
           {/* Mobile Menu Button - Only visible on mobile */}
           <button
             onClick={() => {
-              console.log('Opening mobile sidebar'); // Debug log
+              //console.log('Opening mobile sidebar'); // Debug log
               setIsMobileSidebarOpen(true);
             }}
             className="md:hidden fixed top-4 left-4 z-[60] p-3 bg-blue-500 text-white rounded-lg shadow-lg hover:bg-blue-600 transition-colors"
@@ -591,7 +591,7 @@ const AdminDashboard = () => {
             <div 
               className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-[55]"
               onClick={() => {
-                console.log('Overlay clicked - closing sidebar'); // Debug log
+                //console.log('Overlay clicked - closing sidebar'); // Debug log
                 setIsMobileSidebarOpen(false);
               }}
             />
@@ -645,7 +645,7 @@ const AdminDashboard = () => {
                         key={business.id}
                         onClick={(e) => {
                           e.stopPropagation(); // Prevent event bubbling
-                          console.log('Business selected:', business.name); // Debug log
+                          //console.log('Business selected:', business.name); // Debug log
                           handleBusinessSelect(business);
                           // Auto-close mobile sidebar when business selected
                           setIsMobileSidebarOpen(false);
@@ -674,7 +674,7 @@ const AdminDashboard = () => {
                 <button 
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent event bubbling
-                    console.log('Create business clicked'); // Debug log
+                    //console.log('Create business clicked'); // Debug log
                     setShowBusinessForm(true);
                     // Auto-close mobile sidebar when opening form
                     setIsMobileSidebarOpen(false);

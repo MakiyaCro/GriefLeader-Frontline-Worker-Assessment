@@ -961,27 +961,43 @@ const AssessmentSection = ({ businessDetails }) => {
       
       {/* Report Preview Modal */}
       {showReportModal && selectedAssessment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-4 md:p-6 rounded-lg w-full max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-semibold">Assessment Report Preview</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-white rounded-lg w-full h-full md:w-[95vw] md:h-[95vh] flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-center p-3 md:p-4 border-b flex-shrink-0">
+              <h3 className="text-lg md:text-xl font-semibold">Assessment Report Preview</h3>
               <button
                 onClick={() => {
                   setShowReportModal(false);
                   setSelectedAssessment(null);
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-4 h-5/6">
+            
+            {/* PDF Preview Container - Takes up almost all available space */}
+            <div className="flex-1 p-2 md:p-4 min-h-0">
               <iframe
                 src={`/api/admin/assessments/${selectedAssessment.id}/preview/`}
-                className="w-full h-full border-0"
+                className="w-full h-full border border-gray-200 rounded shadow-sm"
+                style={{ minHeight: '500px' }}
+                title="Assessment Report Preview"
               />
             </div>
-            <div className="flex justify-end space-x-4 p-4 border-t">
+            
+            {/* Footer */}
+            <div className="flex justify-end space-x-4 p-3 md:p-4 border-t flex-shrink-0 bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowReportModal(false);
+                  setSelectedAssessment(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+              >
+                Close Preview
+              </button>
               <button
                 onClick={() => {
                   window.location.href = `/api/admin/assessments/${selectedAssessment.id}/download/`;
