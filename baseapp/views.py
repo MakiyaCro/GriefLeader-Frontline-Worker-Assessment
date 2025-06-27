@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from datetime import datetime
@@ -1723,6 +1724,7 @@ Best regards,
 
 @require_http_methods(["GET"])
 @user_passes_test(is_admin)
+@xframe_options_exempt  # This is the crucial missing decorator!
 def admin_preview_assessment(request, assessment_id):
     """Admin view to preview assessment report PDF with optimization"""
     try:
@@ -1746,11 +1748,17 @@ def admin_preview_assessment(request, assessment_id):
                 logger.error(f"Generated PDF not found at {pdf_path}")
                 raise FileNotFoundError(f"Generated PDF not found at {pdf_path}")
             
-            # Return PDF response
+            # Return PDF response with proper headers for iframe embedding
             pdf_file = open(pdf_path, 'rb')
             pdf_response = FileResponse(pdf_file, content_type='application/pdf')
-            pdf_response['Content-Disposition'] = f'inline; filename="assessment_report_{assessment.candidate_name}.pdf"'
+            
+            # Critical headers for iframe compatibility
             pdf_response['X-Frame-Options'] = 'SAMEORIGIN'
+            pdf_response['Content-Disposition'] = 'inline'
+            pdf_response['Cache-Control'] = 'private, max-age=300'
+            pdf_response['X-Content-Type-Options'] = 'nosniff'
+            pdf_response['Accept-Ranges'] = 'bytes'
+            
             return pdf_response
             
         except Exception as e:
