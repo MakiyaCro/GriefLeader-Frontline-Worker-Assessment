@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import { Send, RefreshCw, Edit, Trash2, Mail } from 'lucide-react';
 
 const BenchmarkSection = ({ businessDetails }) => {
-  const [activeTab, setActiveTab] = useState('setup');
+  const [activeTab, setActiveTab] = useState('template');
   const [benchmarkEmails, setBenchmarkEmails] = useState([]);
   const [newEmail, setNewEmail] = useState({ email: '', region: '' });
   const [benchmarkData, setBenchmarkData] = useState([]);
@@ -299,16 +299,8 @@ Best regards,
 
   return (
     <div className="bg-gray-50 p-4 md:p-6 rounded-lg mt-6 md:mt-8">
-      {/* Tab Navigation - Mobile Responsive */}
+      {/* Tab Navigation - Mobile Responsive - Updated tab order */}
       <div className="flex flex-wrap border-b mb-4 md:mb-6 overflow-x-auto">
-        <button
-          className={`px-3 md:px-4 py-2 mr-2 mb-2 text-sm md:text-base whitespace-nowrap ${activeTab === 'setup' 
-            ? 'border-b-2 border-blue-500 text-blue-500' 
-            : 'text-gray-500'}`}
-          onClick={() => setActiveTab('setup')}
-        >
-          Setup
-        </button>
         <button
           className={`px-3 md:px-4 py-2 mr-2 mb-2 text-sm md:text-base whitespace-nowrap ${activeTab === 'template' 
             ? 'border-b-2 border-blue-500 text-blue-500' 
@@ -316,6 +308,14 @@ Best regards,
           onClick={() => setActiveTab('template')}
         >
           Email Template
+        </button>
+        <button
+          className={`px-3 md:px-4 py-2 mr-2 mb-2 text-sm md:text-base whitespace-nowrap ${activeTab === 'setup' 
+            ? 'border-b-2 border-blue-500 text-blue-500' 
+            : 'text-gray-500'}`}
+          onClick={() => setActiveTab('setup')}
+        >
+          Setup
         </button>
         <button
           className={`px-3 md:px-4 py-2 mb-2 text-sm md:text-base whitespace-nowrap ${activeTab === 'results' 
@@ -327,8 +327,66 @@ Best regards,
         </button>
       </div>
   
-      {/* Tab Content */}
-      {activeTab === 'setup' ? (
+      {/* Tab Content - Updated order to match new tab order */}
+      {activeTab === 'template' ? (
+        <div>
+          {/* Email Template Editor */}
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-2 md:space-y-0">
+              <h3 className="text-lg font-semibold">Benchmark Email Template</h3>
+              <button
+                onClick={saveEmailTemplate}
+                className="w-full md:w-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
+                style={{ minHeight: '44px' }}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Save Template
+              </button>
+            </div>
+            
+            {templateSaved && (
+              <div className="mb-4 p-3 bg-green-100 text-green-800 rounded text-sm md:text-base">
+                Template saved successfully
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Subject
+                </label>
+                <input
+                  type="text"
+                  value={emailTemplate.subject}
+                  onChange={(e) => setEmailTemplate({...emailTemplate, subject: e.target.value})}
+                  className="w-full p-2 md:p-3 border rounded text-sm md:text-base"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Body
+                </label>
+                <textarea
+                  value={emailTemplate.body}
+                  onChange={(e) => setEmailTemplate({...emailTemplate, body: e.target.value})}
+                  className="w-full p-2 md:p-3 border rounded h-48 md:h-64 font-mono text-sm"
+                />
+              </div>
+              
+              <div className="bg-gray-50 p-3 md:p-4 rounded">
+                <h4 className="text-sm font-semibold mb-2">Available Template Variables:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs md:text-sm text-gray-600">
+                  <div><code>{'{{business_name}}'}</code> - Name of the business</div>
+                  <div><code>{'{{assessment_url}}'}</code> - The unique assessment URL</div>
+                  <div><code>{'{{candidate_name}}'}</code> - The recipient's name</div>
+                  <div><code>{'{{region}}'}</code> - The recipient's region</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'setup' ? (
         <div>
           {/* Upload Section */}
           <div className="mb-4 md:mb-6">
@@ -551,64 +609,6 @@ Best regards,
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      ) : activeTab === 'template' ? (
-        <div>
-          {/* Email Template Editor */}
-          <div className="bg-white p-4 md:p-6 rounded-lg shadow">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-2 md:space-y-0">
-              <h3 className="text-lg font-semibold">Benchmark Email Template</h3>
-              <button
-                onClick={saveEmailTemplate}
-                className="w-full md:w-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
-                style={{ minHeight: '44px' }}
-              >
-                <Mail className="w-4 h-4 mr-2" />
-                Save Template
-              </button>
-            </div>
-            
-            {templateSaved && (
-              <div className="mb-4 p-3 bg-green-100 text-green-800 rounded text-sm md:text-base">
-                Template saved successfully
-              </div>
-            )}
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Subject
-                </label>
-                <input
-                  type="text"
-                  value={emailTemplate.subject}
-                  onChange={(e) => setEmailTemplate({...emailTemplate, subject: e.target.value})}
-                  className="w-full p-2 md:p-3 border rounded text-sm md:text-base"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Body
-                </label>
-                <textarea
-                  value={emailTemplate.body}
-                  onChange={(e) => setEmailTemplate({...emailTemplate, body: e.target.value})}
-                  className="w-full p-2 md:p-3 border rounded h-48 md:h-64 font-mono text-sm"
-                />
-              </div>
-              
-              <div className="bg-gray-50 p-3 md:p-4 rounded">
-                <h4 className="text-sm font-semibold mb-2">Available Template Variables:</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs md:text-sm text-gray-600">
-                  <div><code>{'{{business_name}}'}</code> - Name of the business</div>
-                  <div><code>{'{{assessment_url}}'}</code> - The unique assessment URL</div>
-                  <div><code>{'{{candidate_name}}'}</code> - The recipient's name</div>
-                  <div><code>{'{{region}}'}</code> - The recipient's region</div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       ) : (
