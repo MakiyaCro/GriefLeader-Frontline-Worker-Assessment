@@ -2,6 +2,8 @@
 
 A comprehensive web-based assessment platform designed for HR professionals and administrators to create, manage, and analyze candidate evaluations. The system supports multi-business environments with customizable assessments, benchmark comparisons, and detailed reporting.
 
+Clause.ai was used in the development in this code.
+
 ## Features
 
 ### Core Functionality
