@@ -49,6 +49,7 @@ urlpatterns = [
     path('api/businesses/<int:business_id>/update-benchmark-email/', views.update_benchmark_email, name='update-benchmark-email'),
     path('api/businesses/<int:business_id>/send-benchmark-email/',views.send_benchmark_email,name='send-benchmark-email'),
     path('api/businesses/<int:business_id>/benchmark-results/',views.benchmark_results,name='benchmark-results'),
+    path('api/businesses/<int:business_id>/benchmark-export-csv/', views.benchmark_export_csv, name='benchmark-export-csv'),
 
     #--admin assessment
     path('api/businesses/<int:business_id>/assessments/', views.business_assessments, name='business-assessments'),

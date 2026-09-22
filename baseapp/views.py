@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.utils.crypto import get_random_string
 from django.urls import reverse
 from django.utils import timezone
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.db.models.signals import post_save
@@ -1507,6 +1507,74 @@ def benchmark_results(request, business_id):
             'error': str(e),
             'results': []
         }, status=500)
+
+@require_http_methods(["GET"])
+@user_passes_test(is_admin)
+def benchmark_export_csv(request, business_id):
+    """Export all benchmark assessment data for a business as a CSV file.
+
+    Each row is one respondent (candidate email). Each question column header
+    shows the full question pair (statement A vs statement B), and the cell
+    holds the statement text the respondent actually chose.
+    """
+    try:
+        business = get_object_or_404(Business, id=business_id)
+        region = request.GET.get('region', 'all')
+
+        question_pairs = list(
+            QuestionPair.objects.filter(business_id=business_id).order_by('order')
+        )
+
+        assessments_query = Assessment.objects.filter(
+            business_id=business_id,
+            assessment_type='benchmark',
+            completed=True
+        ).select_related('assessmentresponse').prefetch_related(
+            'assessmentresponse__questionresponse_set__question_pair'
+        ).order_by('candidate_email')
+
+        if region != 'all':
+            assessments_query = assessments_query.filter(region=region)
+
+        response = HttpResponse(content_type='text/csv')
+        filename = f"{business.slug}_benchmark_export.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response)
+
+        header = ['Candidate Name', 'Candidate Email', 'Region', 'Completed At']
+        header += [
+            f'"{pair.statement_a}" vs "{pair.statement_b}"'
+            for pair in question_pairs
+        ]
+        writer.writerow(header)
+
+        for assessment in assessments_query:
+            assessment_response = getattr(assessment, 'assessmentresponse', None)
+            chosen_map = {}
+            if assessment_response is not None:
+                chosen_map = {
+                    qr.question_pair_id: qr.chose_a
+                    for qr in assessment_response.questionresponse_set.all()
+                }
+
+            row = [
+                assessment.candidate_name,
+                assessment.candidate_email,
+                assessment.region,
+                assessment.completed_at.strftime('%Y-%m-%d %H:%M') if assessment.completed_at else ''
+            ]
+            for pair in question_pairs:
+                if pair.id in chosen_map:
+                    row.append(pair.statement_a if chosen_map[pair.id] else pair.statement_b)
+                else:
+                    row.append('')
+            writer.writerow(row)
+
+        return response
+    except Exception as e:
+        logger.error(f"Error in benchmark_export_csv: {e}", exc_info=True)
+        return JsonResponse({'error': str(e)}, status=500)
 
 #--admin assessment
 @require_http_methods(["GET"])

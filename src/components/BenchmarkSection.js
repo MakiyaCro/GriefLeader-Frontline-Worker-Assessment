@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import Papa from 'papaparse';
-import { Send, RefreshCw, Edit, Trash2, Mail } from 'lucide-react';
+import { Send, RefreshCw, Edit, Trash2, Mail, Download } from 'lucide-react';
 
 const BenchmarkSection = ({ businessDetails }) => {
   const [activeTab, setActiveTab] = useState('template');
@@ -31,6 +31,7 @@ Best regards,
 {{business_name}} Team`
   });
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Get CSRF token
   const getCsrfToken = () => {
@@ -112,6 +113,47 @@ Best regards,
       setError(error.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Download full benchmark data (per-respondent, per-question) as CSV
+  const handleExportCsv = async () => {
+    setIsExporting(true);
+    try {
+      const url = selectedRegion === 'all'
+        ? `/api/businesses/${businessDetails.business.id}/benchmark-export-csv/`
+        : `/api/businesses/${businessDetails.business.id}/benchmark-export-csv/?region=${encodeURIComponent(selectedRegion)}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to export benchmark data';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // response wasn't JSON, keep default message
+        }
+        throw new Error(errorMessage);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+      const filename = filenameMatch ? filenameMatch[1] : 'benchmark_export.csv';
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -624,6 +666,15 @@ Best regards,
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Update Results
+              </button>
+              <button
+                onClick={handleExportCsv}
+                disabled={isExporting}
+                className="w-full md:w-auto px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center disabled:opacity-50"
+                style={{ minHeight: '44px' }}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {isExporting ? 'Exporting...' : 'Download Full Data (CSV)'}
               </button>
               <select
                 value={selectedRegion}
