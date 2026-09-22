@@ -1513,16 +1513,22 @@ def benchmark_results(request, business_id):
 def benchmark_export_csv(request, business_id):
     """Export all benchmark assessment data for a business as a CSV file.
 
-    Each row is one respondent (candidate email). Each question column header
-    shows the full question pair (statement A vs statement B), and the cell
-    holds the statement text the respondent actually chose.
+    Each row is one respondent (candidate email). Columns include, per
+    attribute, that respondent's % score (wins / times shown) for use in
+    statistical analysis across employees, followed by one column per
+    question showing which attribute the respondent's choice favored.
     """
     try:
         business = get_object_or_404(Business, id=business_id)
         region = request.GET.get('region', 'all')
 
+        attributes = list(
+            Attribute.objects.filter(business_id=business_id, active=True).order_by('order', 'name')
+        )
         question_pairs = list(
-            QuestionPair.objects.filter(business_id=business_id).order_by('order')
+            QuestionPair.objects.filter(business_id=business_id)
+            .select_related('attribute1', 'attribute2')
+            .order_by('order')
         )
 
         assessments_query = Assessment.objects.filter(
@@ -1530,7 +1536,8 @@ def benchmark_export_csv(request, business_id):
             assessment_type='benchmark',
             completed=True
         ).select_related('assessmentresponse').prefetch_related(
-            'assessmentresponse__questionresponse_set__question_pair'
+            'assessmentresponse__questionresponse_set__question_pair__attribute1',
+            'assessmentresponse__questionresponse_set__question_pair__attribute2'
         ).order_by('candidate_email')
 
         if region != 'all':
@@ -1543,20 +1550,35 @@ def benchmark_export_csv(request, business_id):
         writer = csv.writer(response)
 
         header = ['Candidate Name', 'Candidate Email', 'Region', 'Completed At']
+        header += [f'{attr.name} Score (%)' for attr in attributes]
         header += [
-            f'"{pair.statement_a}" vs "{pair.statement_b}"'
-            for pair in question_pairs
+            f'Q{i}: {pair.attribute1.name} vs {pair.attribute2.name}'
+            for i, pair in enumerate(question_pairs, start=1)
         ]
         writer.writerow(header)
 
         for assessment in assessments_query:
             assessment_response = getattr(assessment, 'assessmentresponse', None)
             chosen_map = {}
+            attribute_totals = {}
             if assessment_response is not None:
-                chosen_map = {
-                    qr.question_pair_id: qr.chose_a
-                    for qr in assessment_response.questionresponse_set.all()
-                }
+                for question_response in assessment_response.questionresponse_set.all():
+                    question_pair = question_response.question_pair
+                    chosen_map[question_pair.id] = question_response.chose_a
+
+                    a1_totals = attribute_totals.setdefault(
+                        question_pair.attribute1_id, {'wins': 0, 'count': 0}
+                    )
+                    a1_totals['count'] += 1
+                    if question_response.chose_a:
+                        a1_totals['wins'] += 1
+
+                    a2_totals = attribute_totals.setdefault(
+                        question_pair.attribute2_id, {'wins': 0, 'count': 0}
+                    )
+                    a2_totals['count'] += 1
+                    if not question_response.chose_a:
+                        a2_totals['wins'] += 1
 
             row = [
                 assessment.candidate_name,
@@ -1564,11 +1586,20 @@ def benchmark_export_csv(request, business_id):
                 assessment.region,
                 assessment.completed_at.strftime('%Y-%m-%d %H:%M') if assessment.completed_at else ''
             ]
-            for pair in question_pairs:
-                if pair.id in chosen_map:
-                    row.append(pair.statement_a if chosen_map[pair.id] else pair.statement_b)
+
+            for attr in attributes:
+                totals = attribute_totals.get(attr.id)
+                if totals and totals['count'] > 0:
+                    row.append(round((totals['wins'] / totals['count']) * 100, 2))
                 else:
                     row.append('')
+
+            for pair in question_pairs:
+                if pair.id in chosen_map:
+                    row.append(pair.attribute1.name if chosen_map[pair.id] else pair.attribute2.name)
+                else:
+                    row.append('')
+
             writer.writerow(row)
 
         return response
